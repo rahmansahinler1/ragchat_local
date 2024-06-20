@@ -13,9 +13,11 @@ class ReadingFunctions:
         """
         The code is responsible for reading a PDF file and splitting it into individual pages.
         """
-        loader = PyPDFLoader(path)
+        loader = PyPDFLoader(
+            file_path=path + "/20230923_ELECO_Data-Driven-PHEV-Model.pdf"
+        )
         pages = loader.load_and_split()
-        return pages
+        globals.pdf_pages = pages
 
     def select_pdf_folder(self, label: Label):
         """

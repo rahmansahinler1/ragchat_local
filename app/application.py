@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import *
 from functions.reading_functions import ReadingFunctions
+import globals
 
 rf = ReadingFunctions()
 
@@ -22,7 +23,11 @@ class App(tk.Tk):
         )
         self.button_select_folder.place(x=10, y=50, width=250, height=30)
 
-        self.button_start_rag = tk.Button(self, text="Start RAG Pipeline", command=None)
+        self.button_start_rag = tk.Button(
+            self,
+            text="Start RAG Pipeline",
+            command=lambda: [rf.read_pdf(path=globals.input_folder)],
+        )
         self.button_start_rag.place(x=365, y=50, width=250, height=30)
 
         self.button_ask = tk.Button(self, text="Send Message", command=None)
