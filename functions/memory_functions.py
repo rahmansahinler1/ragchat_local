@@ -2,6 +2,7 @@ import os
 from dotenv import load_dotenv
 from langchain_community.vectorstores import DocArrayInMemorySearch
 from langchain_openai.embeddings import OpenAIEmbeddings
+import globals
 
 
 class MemoryFunctions:
@@ -14,7 +15,7 @@ class MemoryFunctions:
         """
         embeddings = self._create_embeddings()
         vector_db = DocArrayInMemorySearch.from_documents(pages, embeddings)
-        return vector_db
+        globals.vector_db = vector_db
 
     def _create_embeddings(self):
         load_dotenv()
