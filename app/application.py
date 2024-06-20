@@ -1,5 +1,8 @@
 import tkinter as tk
 from tkinter import *
+from functions.reading_functions import ReadingFunctions
+
+rf = ReadingFunctions()
 
 
 class App(tk.Tk):
@@ -12,7 +15,11 @@ class App(tk.Tk):
         self.configure(bg="light sky blue")
 
         # Buttons
-        self.button_select_folder = tk.Button(self, text="Select Folder", command=None)
+        self.button_select_folder = tk.Button(
+            self,
+            text="Select Folder",
+            command=lambda: rf.select_pdf_folder(label=self.label_selected_folder),
+        )
         self.button_select_folder.place(x=10, y=50, width=250, height=30)
 
         self.button_start_rag = tk.Button(self, text="Start RAG", command=None)
