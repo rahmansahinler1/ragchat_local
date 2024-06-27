@@ -3,7 +3,8 @@ from tkinter import *
 from functions.reading_functions import ReadingFunctions
 from functions.memory_functions import MemoryFunctions
 from functions.prompting_functions import PromptingFunctions
-from langchain_openai.chat_models import ChatOpenAI
+
+# from langchain_openai.chat_models import ChatOpenAI
 import globals
 from dotenv import load_dotenv
 import os
@@ -17,11 +18,9 @@ class App(tk.Tk):
     def __init__(self):
         super().__init__()
         # Initialize the OpenAI model
-        load_dotenv()
-        OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-        openai_model = ChatOpenAI(
-            openai_api_key=OPENAI_API_KEY, model_name="gpt-3.5-turbo-0125"
-        )
+        # load_dotenv()
+        # OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+        # client = OpenAI()
 
         # Base window
         self.geometry("625x700")
@@ -29,32 +28,34 @@ class App(tk.Tk):
         self.resizable(False, False)
         self.configure(bg="#D3D3D3")
 
-        # Buttons
-        self.button_select_folder = tk.Button(
+        # Button: Select PDF File
+        self.button_select_file = tk.Button(
             self,
-            text="Select Folder",
-            command=lambda: rf.select_pdf_folder(label=self.label_selected_folder),
-        )
-        self.button_select_folder.place(x=10, y=50, width=250, height=30)
-
-        self.button_start_rag = tk.Button(
-            self,
-            text="Start RAG Pipeline",
+            text="Select PDF",
             command=lambda: [
-                rf.read_pdf(path=globals.input_folder),
-                mf.create_vector_db_in_memory(pages=globals.pdf_pages),
-                pf.generate_chain(
-                    vector_db=globals.vector_db, openai_model=openai_model
-                ),
+                rf.select_pdf_file(label=self.label_selected_pdf),
+                rf.read_pdf(pdf_path=globals.pdf_path),
             ],
         )
-        self.button_start_rag.place(x=365, y=50, width=250, height=30)
+        self.button_select_file.place(x=10, y=50, width=250, height=30)
 
+        # Button: Index
+        self.button_index = tk.Button(
+            self,
+            text="Index",
+            command=lambda: [
+                mf.create_embeddings_from_pages(),
+            ],
+        )
+        self.button_index.place(x=365, y=50, width=250, height=30)
+
+        # Button: Ask Question
         self.button_ask = tk.Button(
             self, text="Send Message", command=lambda: self._display_response
         )
         self.button_ask.place(x=10, y=660, width=250, height=30)
 
+        # Button: Copy Answer
         self.button_copy_answer = tk.Button(self, text="Copy Answer", command=None)
         self.button_copy_answer.place(x=365, y=660, width=250, height=30)
 
@@ -65,9 +66,9 @@ class App(tk.Tk):
         self.label_welcome.config(font=("Arial", 12))
         self.label_welcome.place(x=10, y=10, width=605, height=30)
 
-        self.label_selected_folder = Label(self, text="Selected Folder: None Selected")
-        self.label_selected_folder.config(font=("Arial", 12), anchor="w")
-        self.label_selected_folder.place(x=10, y=90, width=605, height=30)
+        self.label_selected_pdf = Label(self, text="Selected PDF: None Selected")
+        self.label_selected_pdf.config(font=("Arial", 12), anchor="w")
+        self.label_selected_pdf.place(x=10, y=90, width=605, height=30)
 
         self.label_status = Label(self, text="Status")
         self.label_status.config(font=("Arial", 12), anchor="center")

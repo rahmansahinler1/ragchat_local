@@ -1,4 +1,6 @@
-input_folder = None
+pdf_path = None
 pdf_pages = None
-vector_db = None
+page_embeddings = None
+pdf_embeddings = None
+index = None
 chain = None

@@ -1,10 +1,11 @@
 import os
 from dotenv import load_dotenv
 from operator import itemgetter
-from langchain_community.vectorstores import DocArrayInMemorySearch
-from langchain_openai.embeddings import OpenAIEmbeddings
-from langchain_core.output_parsers import StrOutputParser
-from langchain.prompts import ChatPromptTemplate
+
+# from langchain_community.vectorstores import DocArrayInMemorySearch
+# from langchain_openai.embeddings import OpenAIEmbeddings
+# from langchain_core.output_parsers import StrOutputParser
+# from langchain.prompts import ChatPromptTemplate
 import globals
 
 

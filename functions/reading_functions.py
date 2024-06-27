@@ -9,24 +9,21 @@ class ReadingFunctions:
     def __init__(self):
         pass
 
-    def read_pdf(self, path: str):
+    def read_pdf(self, pdf_path: str):
         """
         The code is responsible for reading a PDF file and splitting it into individual pages.
         """
-        loader = PyPDFLoader(
-            file_path=path + "/20230923_ELECO_Data-Driven-PHEV-Model.pdf"
-        )
+        loader = PyPDFLoader(file_path=pdf_path)
         pages = loader.load_and_split()
         globals.pdf_pages = pages
 
-    def select_pdf_folder(self, label: Label):
+    def select_pdf_file(self, label: Label):
         """
         The code is responsible for selecting a folder containing PDF files.
         """
-        pdf_path = filedialog.askdirectory(title="Select the pdf folder")
-        # Writing folder names into text boxes
+        pdf_path = filedialog.askopenfilename(title="Select PDF File")
         if pdf_path:
-            label.config(text="Selected Folder: " + pdf_path)
-            globals.input_folder = pdf_path
+            label.config(text="Selected PDF: " + pdf_path.split("/")[-1])
+            globals.pdf_path = pdf_path
         else:
-            raise Exception("No folder selected")
+            raise Exception("No file selected")
