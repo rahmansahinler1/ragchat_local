@@ -3,6 +3,7 @@ from tkinter import *
 from functions.reading_functions import ReadingFunctions
 from functions.memory_functions import MemoryFunctions
 from functions.prompting_functions import PromptingFunctions
+from functions.indexing_functions import IndexingFunctions
 
 # from langchain_openai.chat_models import ChatOpenAI
 import globals
@@ -12,18 +13,15 @@ import os
 rf = ReadingFunctions()
 mf = MemoryFunctions()
 pf = PromptingFunctions()
+indf = IndexingFunctions()
 
 
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        # Initialize the OpenAI model
-        # load_dotenv()
-        # OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-        # client = OpenAI()
 
         # Base window
-        self.geometry("625x700")
+        self.geometry("800x700")
         self.title("RagBot")
         self.resizable(False, False)
         self.configure(bg="#D3D3D3")
@@ -39,15 +37,25 @@ class App(tk.Tk):
         )
         self.button_select_file.place(x=10, y=50, width=250, height=30)
 
-        # Button: Index
+        # Button: Create Index
         self.button_index = tk.Button(
             self,
-            text="Index",
+            text="Create Index",
             command=lambda: [
                 mf.create_embeddings_from_pages(),
             ],
         )
-        self.button_index.place(x=365, y=50, width=250, height=30)
+        self.button_index.place(x=270, y=50, width=250, height=30)
+
+        # Button: Read Index
+        self.button_index = tk.Button(
+            self,
+            text="Read Index",
+            command=lambda: [
+                indf.read_index(),
+            ],
+        )
+        self.button_index.place(x=530, y=50, width=250, height=30)
 
         # Button: Ask Question
         self.button_ask = tk.Button(
