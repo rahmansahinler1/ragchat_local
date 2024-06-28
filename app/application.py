@@ -1,17 +1,13 @@
 import tkinter as tk
 from tkinter import *
 from functions.reading_functions import ReadingFunctions
-from functions.memory_functions import MemoryFunctions
+from functions.embedding_functions import EmbeddingFunctions
 from functions.prompting_functions import PromptingFunctions
 from functions.indexing_functions import IndexingFunctions
-
-# from langchain_openai.chat_models import ChatOpenAI
 import globals
-from dotenv import load_dotenv
-import os
 
 rf = ReadingFunctions()
-mf = MemoryFunctions()
+ef = EmbeddingFunctions()
 pf = PromptingFunctions()
 indf = IndexingFunctions()
 
@@ -42,7 +38,7 @@ class App(tk.Tk):
             self,
             text="Create Index",
             command=lambda: [
-                mf.create_embeddings_from_pages(),
+                indf.create_embeddings_from_pages(),
             ],
         )
         self.button_index.place(x=270, y=50, width=250, height=30)
