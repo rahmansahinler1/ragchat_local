@@ -38,7 +38,8 @@ class App(tk.Tk):
             self,
             text="Create Index",
             command=lambda: [
-                indf.create_embeddings_from_pages(),
+                ef.create_vector_embeddings_from_pages(),
+                indf.create_index(),
             ],
         )
         self.button_index.place(x=270, y=50, width=250, height=30)
@@ -53,11 +54,13 @@ class App(tk.Tk):
         )
         self.button_index.place(x=530, y=50, width=250, height=30)
 
-        # Button: Ask Question
-        self.button_ask = tk.Button(
-            self, text="Send Message", command=lambda: self._display_response
+        # Button: Search
+        self.button_search = tk.Button(
+            self,
+            text="Search",
+            command=lambda: [self._update_query_vector(), self.display_response()],
         )
-        self.button_ask.place(x=10, y=660, width=250, height=30)
+        self.button_search.place(x=10, y=660, width=250, height=30)
 
         # Button: Copy Answer
         self.button_copy_answer = tk.Button(self, text="Copy Answer", command=None)
@@ -107,12 +110,17 @@ class App(tk.Tk):
         input = self.chat_box_ask.get("1.0", "end-1c")
         return input
 
-    def _take_response(self):
-        input = self._take_input()
-        response = globals.chain.invoke({"question": input})
-        return response
+    def _update_query_vector(self):
+        query = self._take_input()
+        globals.query_vector = ef.create_vector_embedding_from_query(query=query)
 
-    def _display_response(self):
+    def _take_response(self):
+        query_vector = globals.query_vector
+        D, I = globals.index.search(query_vector, 5)
+        return I
+
+    def display_response(self):
         response = self._take_response()
+        response = str(response[0])
         self.chatbox_answer.delete(1.0, END)
         self.chatbox_answer.insert(1.0, response)
