@@ -23,7 +23,7 @@ class App(tk.Tk):
         self.configure(bg="#D3D3D3")
 
         # Button: Select PDF File
-        self.button_select_file = tk.Button(
+        self.button_select_pdf = tk.Button(
             self,
             text="Select PDF",
             command=lambda: [
@@ -31,10 +31,10 @@ class App(tk.Tk):
                 rf.read_pdf(pdf_path=globals.pdf_path),
             ],
         )
-        self.button_select_file.place(x=10, y=50, width=250, height=30)
+        self.button_select_pdf.place(x=10, y=50, width=100, height=30)
 
         # Button: Create Index
-        self.button_index = tk.Button(
+        self.button_create_index = tk.Button(
             self,
             text="Create Index",
             command=lambda: [
@@ -42,17 +42,27 @@ class App(tk.Tk):
                 indf.create_index(),
             ],
         )
-        self.button_index.place(x=270, y=50, width=250, height=30)
+        self.button_create_index.place(x=120, y=50, width=100, height=30)
 
         # Button: Read Index
-        self.button_index = tk.Button(
+        self.button_read_index = tk.Button(
             self,
             text="Read Index",
             command=lambda: [
                 indf.read_index(),
             ],
         )
-        self.button_index.place(x=530, y=50, width=250, height=30)
+        self.button_read_index.place(x=230, y=50, width=100, height=30)
+
+        # Button: Save Index
+        self.button_save_index = tk.Button(
+            self,
+            text="Save Index",
+            command=lambda: [
+                indf.save_index(),
+            ],
+        )
+        self.button_save_index.place(x=340, y=50, width=100, height=30)
 
         # Button: Search
         self.button_search = tk.Button(
@@ -120,7 +130,7 @@ class App(tk.Tk):
         return I
 
     def display_response(self):
-        response = self._take_response()
-        response = str(response[0])
-        self.chatbox_answer.delete(1.0, END)
-        self.chatbox_answer.insert(1.0, response)
+        self.chatbox_answer.delete(1.0, "end")
+        sentence_indexes = self._take_response()
+        for i in sentence_indexes[0]:
+            self.chatbox_answer.insert(1.0, globals.pdf_sentences[i])
