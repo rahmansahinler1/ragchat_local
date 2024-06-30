@@ -44,25 +44,15 @@ class App(tk.Tk):
         )
         self.button_create_index.place(x=120, y=50, width=100, height=30)
 
-        # Button: Read Index
-        self.button_read_index = tk.Button(
+        # Button: Load Index
+        self.button_load_index = tk.Button(
             self,
-            text="Read Index",
+            text="Load Index",
             command=lambda: [
-                indf.read_index(),
+                indf.load_index(),
             ],
         )
-        self.button_read_index.place(x=230, y=50, width=100, height=30)
-
-        # Button: Save Index
-        self.button_save_index = tk.Button(
-            self,
-            text="Save Index",
-            command=lambda: [
-                indf.save_index(),
-            ],
-        )
-        self.button_save_index.place(x=340, y=50, width=100, height=30)
+        self.button_load_index.place(x=230, y=50, width=100, height=30)
 
         # Button: Search
         self.button_search = tk.Button(
@@ -133,4 +123,5 @@ class App(tk.Tk):
         self.chatbox_answer.delete(1.0, "end")
         sentence_indexes = self._take_response()
         for i in sentence_indexes[0]:
-            self.chatbox_answer.insert(1.0, globals.pdf_sentences[i])
+            answer = globals.pdf_sentences.loc[i, "Sentences"]
+            self.chatbox_answer.insert(1.0, f"{i}) {answer}\n\n")

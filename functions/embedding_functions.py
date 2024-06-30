@@ -1,4 +1,4 @@
-import os
+import pandas as pd
 import numpy as np
 from openai import OpenAI
 from dotenv import load_dotenv
@@ -15,7 +15,7 @@ class EmbeddingFunctions:
         pdf_sentences = []
         for page in globals.pdf_pages:
             page_sentences = page.page_content.split(".")
-            pdf_sentences.append(page_sentences)
+            pdf_sentences = pdf_sentences.__add__(page_sentences)
             for sentence in page_sentences:
                 if len(sentence) > 5:
                     sentence_embedding = self.client.embeddings.create(
@@ -25,7 +25,7 @@ class EmbeddingFunctions:
         globals.pdf_embeddings = np.array(
             [x.data[0].embedding for x in pdf_embeddings], float
         )
-        globals.pdf_sentences = pdf_sentences
+        globals.pdf_sentences = pd.DataFrame(pdf_sentences, columns=["Sentences"])
 
     def create_vector_embedding_from_query(self, query):
         query_embedding = self.client.embeddings.create(

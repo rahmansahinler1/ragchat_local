@@ -1,6 +1,5 @@
 from langchain_community.document_loaders import PyPDFLoader
 from tkinter import filedialog
-import tkinter as tk
 from tkinter import *
 import globals
 
@@ -10,6 +9,7 @@ class ReadingFunctions:
         pass
 
     def read_pdf(self, pdf_path: str):
+        # TODO: REPLACE THIS SHITTY FUNCTION WITH SOMETHING GOOD.
         """
         The code is responsible for reading a PDF file and splitting it into individual pages.
         """
