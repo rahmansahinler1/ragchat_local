@@ -17,7 +17,7 @@ class App(tk.Tk):
         super().__init__()
 
         # Base window
-        self.geometry("800x700")
+        self.geometry("960x720")
         self.title("RagBot")
         self.resizable(False, False)
         self.configure(bg="#D3D3D3")
@@ -31,7 +31,7 @@ class App(tk.Tk):
                 rf.read_pdf(pdf_path=globals.pdf_path),
             ],
         )
-        self.button_select_pdf.place(x=10, y=50, width=100, height=30)
+        self.button_select_pdf.place(x=5, y=47, width=175, height=30)
 
         # Button: Create Index
         self.button_create_index = tk.Button(
@@ -42,7 +42,7 @@ class App(tk.Tk):
                 indf.create_index(),
             ],
         )
-        self.button_create_index.place(x=120, y=50, width=100, height=30)
+        self.button_create_index.place(x=5, y=87, width=175, height=30)
 
         # Button: Load Index
         self.button_load_index = tk.Button(
@@ -52,59 +52,47 @@ class App(tk.Tk):
                 indf.load_index(),
             ],
         )
-        self.button_load_index.place(x=230, y=50, width=100, height=30)
+        self.button_load_index.place(x=5, y=127, width=175, height=30)
 
         # Button: Search
         self.button_search = tk.Button(
             self,
-            text="Search",
+            text=">",
             command=lambda: [self._update_query_vector(), self.display_response()],
         )
-        self.button_search.place(x=10, y=660, width=250, height=30)
-
-        # Button: Copy Answer
-        self.button_copy_answer = tk.Button(self, text="Copy Answer", command=None)
-        self.button_copy_answer.place(x=365, y=660, width=250, height=30)
+        self.button_search.place(x=923, y=683, width=35, height=35)
 
         # Labels
-        self.label_welcome = Label(
-            self, text="Welcome to RAGBot! Your personal PDF assistant!"
+        self.label_settings = Label(self, text="Settings")
+        self.label_settings.config(
+            font=("Times New Roman", 12),
+            background="white",
+            anchor="w",
         )
-        self.label_welcome.config(font=("Arial", 12))
-        self.label_welcome.place(x=10, y=10, width=605, height=30)
+        self.label_settings.place(x=0, y=2, width=185, height=35)
 
-        self.label_selected_pdf = Label(self, text="Selected PDF: None Selected")
-        self.label_selected_pdf.config(font=("Arial", 12), anchor="w")
-        self.label_selected_pdf.place(x=10, y=90, width=605, height=30)
-
-        self.label_status = Label(self, text="Status")
-        self.label_status.config(font=("Arial", 12), anchor="center")
-        self.label_status.place(x=10, y=130, width=605, height=30)
-
-        self.label_chat = Label(self, text="Chat with RAGBot")
-        self.label_chat.config(font=("Arial", 12))
-        self.label_chat.place(x=10, y=350, width=605, height=30)
-
-        # Status Chatbox
-        self.chatbox_answer = Text(self, wrap=WORD)
-        self.chatbox_answer.tag_configure("center", justify="center")
-        self.chatbox_answer.insert(1.0, "Not Started")
-        self.chatbox_answer.config(font=("Arial", 8), fg="black", bg="white")
-        self.chatbox_answer.place(x=10, y=170, width=605, height=150)
+        self.label_chat = Label(self, text="Chat")
+        self.label_chat.config(
+            font=("Times New Roman", 12),
+            background="white",
+            anchor="w",
+        )
+        self.label_chat.place(x=187, y=2, width=771, height=35)
 
         # Response Chatbox
-        self.chatbox_answer = Text(self, wrap=WORD)
-        self.chatbox_answer.tag_configure("center", justify="center")
-        self.chatbox_answer.insert(1.0, "Answer will appear here")
-        self.chatbox_answer.config(font=("Arial", 8), fg="black", bg="white")
-        self.chatbox_answer.place(x=10, y=390, width=605, height=200)
+        self.chatbox_response = Text(self, wrap=WORD)
+        self.chatbox_response.tag_configure("center", justify="center")
+        self.chatbox_response.config(
+            font=("Times New Roman", 14), fg="black", bg="white"
+        )
+        self.chatbox_response.place(x=187, y=39, width=771, height=642)
 
         # Answer Chatbox
         self.chat_box_ask = Text(self, wrap=WORD)
         self.chat_box_ask.tag_configure("center", justify="center")
         self.chat_box_ask.insert(1.0, "Message RAGBot here!")
         self.chat_box_ask.config(font=("Arial", 8), fg="black", bg="white")
-        self.chat_box_ask.place(x=10, y=600, width=605, height=50)
+        self.chat_box_ask.place(x=187, y=683, width=734, height=35)
 
     def _take_input(self):
         input = self.chat_box_ask.get("1.0", "end-1c")
