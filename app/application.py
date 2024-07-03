@@ -38,7 +38,7 @@ class App(tk.Tk):
             self,
             text="Create Index",
             command=lambda: [
-                ef.create_vector_embeddings_from_pages(),
+                ef.create_vector_embeddings_from_pdf(),
                 indf.create_index(),
             ],
         )
@@ -123,5 +123,5 @@ class App(tk.Tk):
         self.chatbox_answer.delete(1.0, "end")
         sentence_indexes = self._take_response()
         for i in sentence_indexes[0]:
-            answer = globals.pdf_sentences.loc[i, "Sentences"]
-            self.chatbox_answer.insert(1.0, f"{i}) {answer}\n\n")
+            answer = globals.pdf_sentences[i]
+            self.chatbox_answer.insert(1.0, f"Answer:{i} --> {answer}\n\n")

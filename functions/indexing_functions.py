@@ -1,6 +1,7 @@
 import pandas as pd
 import faiss
 import globals
+import pickle
 from tkinter import filedialog
 
 
@@ -18,15 +19,19 @@ class IndexingFunctions:
         index = faiss.IndexFlatL2(dimension)
         index.add(vector)
         globals.index = index
-        self._save_index()
+        index_bytes = faiss.serialize_index(index=index)
+        self._save_index(index_bytes=index_bytes)
 
     def load_index(self):
-        index_path = filedialog.askopenfilename(title="Select Index")
-        globals.index = faiss.read_index(index_path)
-        sentences_path = index_path.split(".")[0] + ".csv"
-        globals.pdf_sentences = pd.read_csv(sentences_path)
+        index_object_path = filedialog.askopenfilename(title="Select Index")
+        with open(index_object_path, "rb") as f:
+            index_object = pickle.load(f)
+        globals.index = faiss.deserialize_index(index_object["index"])
+        globals.pdf_sentences = index_object["sentences"]
 
-    def _save_index(self):
+    def _save_index(self, index_bytes):
+        index_object = {"index": index_bytes, "sentences": globals.pdf_sentences}
         name = globals.pdf_path.split("/")[-1].split(".")[0]
-        faiss.write_index(globals.index, f"indexes/index_{name}.index")
-        globals.pdf_sentences.to_csv(f"indexes/sentences_{name}.csv", index=False)
+        path = "db/" + name
+        with open(path + ".pickle", "wb") as f:
+            pickle.dump(index_object, f)

@@ -4,6 +4,5 @@ if __name__ == "__main__":
     app = App()
     app.mainloop()
 
-# TODO: DATA CLEANING
-# TODO: PDF FILE READING PROCESS
-# TODO: MORE MEANINGFUL MATCHES
+# TODO: Test it with larger pdf
+# TODO: Updated user interface

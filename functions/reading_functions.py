@@ -1,4 +1,5 @@
 from langchain_community.document_loaders import PyPDFLoader
+import PyPDF2
 from tkinter import filedialog
 from tkinter import *
 import globals
@@ -9,13 +10,22 @@ class ReadingFunctions:
         pass
 
     def read_pdf(self, pdf_path: str):
-        # TODO: REPLACE THIS SHITTY FUNCTION WITH SOMETHING GOOD.
         """
         The code is responsible for reading a PDF file and splitting it into individual pages.
         """
-        loader = PyPDFLoader(file_path=pdf_path)
-        pages = loader.load_and_split()
-        globals.pdf_pages = pages
+        # Open the PDF file
+        with open(pdf_path, "rb") as file:
+            reader = PyPDF2.PdfReader(file)
+            num_pages = len(reader.pages)
+
+            # Extract text from each page
+            for page_num in range(num_pages):
+                text = reader.pages[page_num].extract_text()
+                text = text.replace("\n", "")
+                sentences = text.split(".")
+                for sentence in sentences:
+                    if len(sentence) > 15:
+                        globals.pdf_sentences.append(sentence)
 
     def select_pdf_file(self, label: Label):
         """
