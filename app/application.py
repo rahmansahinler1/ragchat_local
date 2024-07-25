@@ -27,7 +27,11 @@ class App(tk.Tk):
             self,
             text="Select PDF",
             command=lambda: [
-                rf.select_pdf_file(label=self.label_selected_pdf),
+                rf.select_pdf_file(),
+                self.display_message(
+                    message = "Selected PDF: " + globals.pdf_path.split("/")[-1],
+                    sender = "system",
+                ),
                 rf.read_pdf(pdf_path=globals.pdf_path),
             ],
         )
@@ -55,12 +59,15 @@ class App(tk.Tk):
         self.button_load_index.place(x=5, y=127, width=175, height=30)
 
         # Button: Search
-        self.button_search = tk.Button(
+        self.button_ask = tk.Button(
             self,
             text=">",
-            command=lambda: [self._update_query_vector(), self.display_response()],
+            command=lambda: [
+                self._update_query_vector(),
+                self._take_response(),
+            ],
         )
-        self.button_search.place(x=923, y=683, width=35, height=35)
+        self.button_ask.place(x=923, y=683, width=35, height=35)
 
         # Labels
         self.label_settings = Label(self, text="Settings")
@@ -88,14 +95,18 @@ class App(tk.Tk):
         self.chatbox_response.place(x=187, y=39, width=771, height=642)
 
         # Answer Chatbox
-        self.chat_box_ask = Text(self, wrap=WORD)
-        self.chat_box_ask.tag_configure("center", justify="center")
-        self.chat_box_ask.insert(1.0, "Message RAGBot here!")
-        self.chat_box_ask.config(font=("Arial", 8), fg="black", bg="white")
-        self.chat_box_ask.place(x=187, y=683, width=734, height=35)
+        self.chatbox_ask = Text(self, wrap=WORD)
+        self.chatbox_ask.tag_configure("center", justify="center")
+        self.chatbox_ask.insert(1.0, "Message RAGBot here!")
+        self.chatbox_ask.config(font=("Arial", 8), fg="black", bg="white")
+        self.chatbox_ask.place(x=187, y=683, width=734, height=35)
 
     def _take_input(self):
-        input = self.chat_box_ask.get("1.0", "end-1c")
+        input = self.chatbox_ask.get("1.0", "end-1c")
+        self.display_message(
+            message=input,
+            sender="user"
+        )
         return input
 
     def _update_query_vector(self):
@@ -107,9 +118,15 @@ class App(tk.Tk):
         D, I = globals.index.search(query_vector, 5)
         return I
 
-    def display_response(self):
-        self.chatbox_answer.delete(1.0, "end")
-        sentence_indexes = self._take_response()
-        for i in sentence_indexes[0]:
-            answer = globals.pdf_sentences[i]
-            self.chatbox_answer.insert(1.0, f"Answer:{i} --> {answer}\n\n")
+    def display_message(self, message: str, sender: str):
+        # sentence_indexes = self._take_response()
+        # for i in sentence_indexes[0]:
+        #     answer = globals.pdf_sentences[i]
+        #     self.chatbox_answer.insert(1.0, f"Answer:{i} --> {answer}\n\n")
+        if sender == "system":
+            message = "RAG Chat -->  " + message
+        else:
+            message = "You -->  " + message
+        
+        self.chatbox_response.insert(tk.END, message + "\n")
+        

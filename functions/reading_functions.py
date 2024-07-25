@@ -1,8 +1,8 @@
-from langchain_community.document_loaders import PyPDFLoader
-import PyPDF2
 from tkinter import filedialog
 from tkinter import *
+from pathlib import Path
 import globals
+import PyPDF2
 
 
 class ReadingFunctions:
@@ -27,13 +27,20 @@ class ReadingFunctions:
                     if len(sentence) > 15:
                         globals.pdf_sentences.append(sentence)
 
-    def select_pdf_file(self, label: Label):
+    def select_pdf_file(self):
         """
         The code is responsible for selecting a folder containing PDF files.
         """
-        pdf_path = filedialog.askopenfilename(title="Select PDF File")
+        initial_dir = Path(__file__).resolve().parent.parent / "docs"
+        pdf_path = filedialog.askopenfilename(
+            title="Select PDF File",
+            initialdir=initial_dir,
+            filetypes=(
+                ("PDF files", "*.pdf"),
+                ("Text files", "*.txt"),
+            )
+        )
         if pdf_path:
-            label.config(text="Selected PDF: " + pdf_path.split("/")[-1])
             globals.pdf_path = pdf_path
         else:
             raise Exception("No file selected")
