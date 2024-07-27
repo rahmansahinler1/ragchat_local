@@ -2,13 +2,13 @@ import tkinter as tk
 from tkinter import *
 from functions.reading_functions import ReadingFunctions
 from functions.embedding_functions import EmbeddingFunctions
-from functions.prompting_functions import PromptingFunctions
 from functions.indexing_functions import IndexingFunctions
+from functions.chatbot_functions import ChatbotFunctions
 import globals
 
-rf = ReadingFunctions()
 ef = EmbeddingFunctions()
-pf = PromptingFunctions()
+cf = ChatbotFunctions()
+rf = ReadingFunctions()
 indf = IndexingFunctions()
 
 
@@ -71,8 +71,7 @@ class App(tk.Tk):
             self,
             text=">",
             command=lambda: [
-                self._update_query_vector(),
-                self._take_response(),
+                self.generate_response(),
             ],
         )
         self.button_ask.place(x=923, y=683, width=37, height=37)
@@ -119,19 +118,29 @@ class App(tk.Tk):
 
     def _take_input(self):
         input = self.chatbox_ask.get("1.0", "end-1c")
-        self.display_message(message=input, sender="user")
         return input
 
-    def _update_query_vector(self):
+    def _create_query_vector(self):
         query = self._take_input()
-        globals.query_vector = ef.create_vector_embedding_from_query(query=query)
+        return ef.create_vector_embedding_from_query(query=query)
 
-    def _take_response(self):
-        query_vector = globals.query_vector
-        D, I = globals.index.search(query_vector, 5)
-        for i in I[0]:
-            answer = globals.pdf_sentences[i]
-            self.display_message(message=answer, sender="system")
+    def generate_response(self):
+        query = self._take_input()
+        query_vector = self._create_query_vector()
+        _, I = globals.index.search(query_vector, 5)
+
+        # Create context
+        context = ""
+        for i, index in enumerate(I[0]):
+            answer = globals.pdf_sentences[index]
+            context += f"Context {i + 1}: {answer}\n"
+        
+        # Generate response
+        response = cf.response_generation(query=self._take_input(), context=context)
+
+        # Display response
+        self.display_message(message=query, sender="user")
+        self.display_message(message=response, sender="system")
 
     def display_message(self, message: str, sender: str):
         if sender == "system":
