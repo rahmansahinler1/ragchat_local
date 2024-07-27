@@ -4,3 +4,4 @@ pdf_embeddings = None
 pdf_sentences = []
 index = None
 query_vector = None
+response = None
