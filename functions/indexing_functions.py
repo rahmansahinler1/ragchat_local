@@ -1,4 +1,3 @@
-import pandas as pd
 import faiss
 import globals
 import pickle
