@@ -7,7 +7,7 @@ You can interact with RAG Chat effortlessly through chat, obtaining the most up-
 RAG Chat features an integrated user interface for seamless interactions.
 You can access the latest information and resources directly from RAG Chat!
 
-![image](https://github.com/user-attachments/assets/a742a603-ff84-4831-86da-fe63af71998e)
+![image](https://github.com/user-attachments/assets/3b73cd7f-20a4-451f-8241-fe6b48bd9b0e)
 
 # Setting Up
 You can install all of the necessary libraries from requirements.txt
