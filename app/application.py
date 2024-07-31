@@ -5,6 +5,7 @@ from functions.embedding_functions import EmbeddingFunctions
 from functions.indexing_functions import IndexingFunctions
 from functions.chatbot_functions import ChatbotFunctions
 import globals
+import datetime
 
 ef = EmbeddingFunctions()
 cf = ChatbotFunctions()
@@ -143,9 +144,10 @@ class App(tk.Tk):
         self.display_message(message=response, sender="system")
 
     def display_message(self, message: str, sender: str):
+        current_time = datetime.now().strftime("%H:%M:%S")
         if sender == "system":
-            message = "RAG Chat -->  " + message
+            message = f"RAG Chat --> {message} at {current_time}"
         else:
-            message = "You -->  " + message
+            message = f"You --> {message} at {current_time}"
 
         self.chatbox_response.insert(tk.END, message + "\n")
