@@ -2,35 +2,38 @@ import numpy as np
 from openai import OpenAI
 from dotenv import load_dotenv
 import globals
-
+import time 
 
 class EmbeddingFunctions:
     def __init__(self):
         load_dotenv()
         self.client = OpenAI()
 
-    def create_vector_embeddings_from_pdf(self,batch_size=100):
+    def create_vector_embeddings_from_pdf(self,batch_size=500):
         pdf_embeddings = []
+        total_time = 0
+        globals.batch_size = batch_size
         sentences = globals.pdf_sentences
         #for sentence in globals.pdf_sentences
         batches = [sentences[i:i+batch_size] for i in range(0,len(sentences),batch_size)]
-
-        #embedding cümle başına ne kadar süre harcıyor
-        #batch size'a göre bu süre nasıl değişiyor
-        #avg embedding time per sentence when batch size = 500
-        #avg indexing time per sentence when batch size = 500
         
         for batch in batches:
+            start_time = time.time()
             sentence_embedding = self.client.embeddings.create(
                 model="text-embedding-ada-002", input=batch
             )
-            #[0] = 70 X 25'Lik
-            pdf_embeddings.extend(sentence_embedding.data) #batchlerin sadece ilkini aldığı için hızlanıyor 
-
+            end_time = time.time()
+            total_time = end_time-start_time
+            pdf_embeddings.extend(sentence_embedding.data) 
+            globals.total_emd_time = total_time
+            globals.sentence_number = len(pdf_embeddings)
+            globals.avg_emd_time = total_time/len(pdf_embeddings)
+            globals.update_kpi_dict()
         globals.pdf_embeddings = np.array(
             [x.embedding for x in pdf_embeddings], float
         )
-
+        #self.avg_embedding_time_per_sentence = round(total_time/len(pdf_embeddings),4)
+        #self.total_time_of_embedding = round(total_time,2) 
     def create_vector_embedding_from_query(self, query):
         query_embedding = self.client.embeddings.create(
             model="text-embedding-ada-002", input=query

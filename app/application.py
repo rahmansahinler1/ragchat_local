@@ -4,13 +4,15 @@ from functions.reading_functions import ReadingFunctions
 from functions.embedding_functions import EmbeddingFunctions
 from functions.indexing_functions import IndexingFunctions
 from functions.chatbot_functions import ChatbotFunctions
+from functions.documentation_functions import DocumentationFunctions
 import globals
-import datetime
+from datetime import datetime
 
 ef = EmbeddingFunctions()
 cf = ChatbotFunctions()
 rf = ReadingFunctions()
 indf = IndexingFunctions()
+lg = DocumentationFunctions()
 
 
 class App(tk.Tk):
@@ -43,10 +45,11 @@ class App(tk.Tk):
             self,
             text="Create Index",
             command=lambda: [
-                ef.create_vector_embeddings_from_pdf(),
+                ef.create_vector_embeddings_from_pdf(), 
                 indf.create_index(),
+                lg.performance_logger(globals.kpi_dict),
                 self.display_message(
-                    message="Index Created ",
+                    message= "Index Created",
                     sender="system",
                 ),
             ],
@@ -116,7 +119,7 @@ class App(tk.Tk):
             bg="gray85"
         )
         self.chatbox_ask.place(x=187, y=683, width=734, height=37)
-
+        
     def _take_input(self):
         input = self.chatbox_ask.get("1.0", "end-1c")
         return input
