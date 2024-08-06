@@ -14,6 +14,7 @@ rf = ReadingFunctions()
 indf = IndexingFunctions()
 lg = DocumentationFunctions()
 
+globals.kpi_dict["timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 class App(tk.Tk):
     def __init__(self):

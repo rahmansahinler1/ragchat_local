@@ -14,8 +14,9 @@ class IndexingFunctions:
         This function will create the index from given vector.
         It uses facebook's faiss library to index.
         """
-        total_time = 0
+        total_time = 0 
         start_time = time.time()
+       
         dimension = len(globals.pdf_embeddings[0])
         vector = globals.pdf_embeddings
         index = faiss.IndexFlatL2(dimension)
@@ -23,10 +24,12 @@ class IndexingFunctions:
         globals.index = index
         index_bytes = faiss.serialize_index(index=index)
         self._save_index(index_bytes=index_bytes)
+        
         end_time = time.time()
-        total_time = end_time-start_time
-        globals.total_ind_time = total_time
-        globals.avg_ind_time = total_time/len(globals.pdf_embeddings)
+        total_time = end_time-start_time #Calculating total_emd_time 
+
+        globals.kpi_dict["total_ind_time"] = total_time #Inputing total_emd_time value to kpi dictionary 
+        globals.kpi_dict["avg_ind_time"] = total_time/len(globals.pdf_embeddings)#Inputing avg_emd_time value to kpi dictionary 
 
 
     def load_index(self):
