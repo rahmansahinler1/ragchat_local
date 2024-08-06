@@ -27,7 +27,7 @@ class IndexingFunctions:
         total_time = end_time-start_time
         globals.total_ind_time = total_time
         globals.avg_ind_time = total_time/len(globals.pdf_embeddings)
-        globals.update_kpi_dict()
+
 
     def load_index(self):
         index_object_path = filedialog.askopenfilename(title="Select Index")

@@ -17,18 +17,21 @@ class EmbeddingFunctions:
         #for sentence in globals.pdf_sentences
         batches = [sentences[i:i+batch_size] for i in range(0,len(sentences),batch_size)]
         
+        start_time = time.time()
         for batch in batches:
-            start_time = time.time()
             sentence_embedding = self.client.embeddings.create(
                 model="text-embedding-ada-002", input=batch
             )
-            end_time = time.time()
-            total_time = end_time-start_time
-            pdf_embeddings.extend(sentence_embedding.data) 
-            globals.total_emd_time = total_time
-            globals.sentence_number = len(pdf_embeddings)
-            globals.avg_emd_time = total_time/len(pdf_embeddings)
-            globals.update_kpi_dict()
+        end_time = time.time()
+        total_time = end_time-start_time
+
+        pdf_embeddings.extend(sentence_embedding.data) 
+
+        globals.kpi_dict["total_time"] = total_time #
+        globals.sentence_number = len(pdf_embeddings)
+        globals.avg_emd_time = total_time/len(pdf_embeddings)
+
+        
         globals.pdf_embeddings = np.array(
             [x.embedding for x in pdf_embeddings], float
         )
