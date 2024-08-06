@@ -1,8 +1,8 @@
 from app.application import App
 from flows.detection_flow import DBFileDetectionFlow
 
-CREATE_DEPLOYMENT = True
-OPEN_GUI = False
+CREATE_DEPLOYMENT = False
+OPEN_GUI = True
 
 if __name__ == "__main__":
     if OPEN_GUI:

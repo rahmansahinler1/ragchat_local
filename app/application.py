@@ -144,10 +144,9 @@ class App(tk.Tk):
         self.display_message(message=response, sender="system")
 
     def display_message(self, message: str, sender: str):
-        current_time = datetime.now().strftime("%H:%M:%S")
         if sender == "system":
-            message = f"RAG Chat --> {message} at {current_time}"
+            message = f"RAG Chat --> {message}"
         else:
-            message = f"You --> {message} at {current_time}"
+            message = f"You --> {message}"
 
         self.chatbox_response.insert(tk.END, message + "\n")
