@@ -1,7 +1,8 @@
 from pathlib import Path
+from datetime import datetime
 
 from prefect.deployments import Deployment
-from prefect import flow
+from prefect import flow, get_run_logger
 
 from tasks.file_detection_task import FileDetectionTask
 
@@ -24,8 +25,8 @@ class DBFileDetectionFlow:
 
     def __init__(
             self,
-            interval = 90,
-            duration = 60,
+            interval = 1800,
+            duration = 300,
         ):
         """
         Initialize the DBFileDetectionFlow.
@@ -48,9 +49,17 @@ class DBFileDetectionFlow:
         Returns:
             list: A list of detected file changes.
         """
-        changes = self.file_detection_task.get_changes()
-        for change in changes:
-            print(change)
+        logger = get_run_logger()
+        changes = self.file_detection_task.get_changes(duration=self.duration)
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        if changes:
+            logger.info(f"[{timestamp}] Detected {len(changes)} change(s):")
+            for change in changes:
+                logger.info(f"  {change}")
+        else:
+            logger.info(f"[{timestamp}] No changes detected during this flow run.")
+        
         return changes
 
     def create_deployment(self):

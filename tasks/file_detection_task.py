@@ -124,7 +124,7 @@ class FileDetectionTask:
         """
         return detect_changes_task(self.file_detector, duration)
 
-@task(cache_key_fn=task_input_hash, cache_expiration=timedelta(minutes=10))
+@task(cache_key_fn=task_input_hash, cache_expiration=timedelta(minutes=25))
 def detect_changes_task(file_detector: FileDetector, duration: int = 300) -> List[str]:
     """
     Prefect task to detect changes in the specified folder.
