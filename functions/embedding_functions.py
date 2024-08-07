@@ -14,7 +14,7 @@ class EmbeddingFunctions:
         total_time = 0
         sentences = globals.pdf_sentences
         globals.kpi_dict["batch_size"] = batch_size #Inputing batch_size value to kpi dictionary 
-        globals.kpi_dict["sentence_amount"] = len(pdf_embeddings) #Inputing sentence_amount value to kpi dictionary
+        globals.kpi_dict["sentence_amount"] = len(sentences) #Inputing sentence_amount value to kpi dictionary
         batches = [sentences[i:i+batch_size] for i in range(0,len(sentences),batch_size)]
         
         start_time = time.time()
