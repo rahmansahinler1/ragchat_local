@@ -1,8 +1,8 @@
 from app.application import App
-from flows.detection_flow import DBFileDetectionFlow
+from pipeline_setup.file_detection_pipeline import DBFileDetectionFlow
 
-CREATE_DEPLOYMENT = False
-OPEN_GUI = True
+CREATE_DEPLOYMENT = True
+OPEN_GUI = False
 
 if __name__ == "__main__":
     if OPEN_GUI:
@@ -10,8 +10,8 @@ if __name__ == "__main__":
         app.mainloop()
 
     if CREATE_DEPLOYMENT:
-        deployment = DBFileDetectionFlow()
-        deployment.create_deployment()
+        detection_flow = DBFileDetectionFlow(1800, 60)
+        detection_flow.create_deployment()
 
 # TODO: Test it with larger pdf
 # TODO: Indexing with more than one pdf
