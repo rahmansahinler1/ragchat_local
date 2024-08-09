@@ -10,7 +10,7 @@ if __name__ == "__main__":
         app.mainloop()
 
     if CREATE_DEPLOYMENT:
-        detection_flow = DBFileDetectionFlow(1800, 60)
+        detection_flow = DBFileDetectionFlow(interval=60)
         detection_flow.create_deployment()
 
 # TODO: Test it with larger pdf

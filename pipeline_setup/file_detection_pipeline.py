@@ -1,7 +1,10 @@
-from pathlib import Path
 from datetime import timedelta
+from typing import List, Optional
+from pathlib import Path
+import pandas as pd
 import time
-from typing import List
+from datetime import datetime
+import json
 
 from prefect.deployments import Deployment
 from prefect import task, flow, get_run_logger
@@ -14,24 +17,22 @@ from watchdog.events import FileSystemEventHandler
 class DBFileDetectionFlow:
     def __init__(
             self,
-            interval = 1800,
-            duration = 60,
+            interval: Optional[int] = 1800,
         ):
-
         self.deployment_name = "DB File Detection"
         self.interval = interval
-        self.duration = duration
 
     def create_deployment(self):
         deployment = Deployment.build_from_flow(
             flow=db_file_detection_flow,
             name="DB File Detection",
             schedule={"interval": self.interval},
-            work_queue_name="db_file_detection"
+            work_queue_name="db_file_detection",
+            work_pool_name="local-worker",
         )
         deployment.apply()
 
-class FolderChangeHandler(FileSystemEventHandler):
+class FileChangeHandler(FileSystemEventHandler):
     def __init__(self):
         self.changes = []
 
@@ -40,39 +41,63 @@ class FolderChangeHandler(FileSystemEventHandler):
             self.changes.append(f"File {event.src_path} has been {event.event_type}")
 
 class FileDetector:
-    def __init__(self):
-        self.db_folder = "C:/Users/Rahman/Documents/ragchat_local/db/domains"
-        self.event_handler = FolderChangeHandler()
+    def __init__(
+        self,
+        duration: Optional[int] = 300
+    ):
+        self.duration = duration
+        self.db_folder = Path(__file__).resolve().parent.parent / "db" / "domains"
+        self.memory_json_path = Path(__file__).resolve().parent.parent / "utils" / "memory.json"
+        self.event_handler = FileChangeHandler()
         self.observer = Observer()
 
-    def start_detection(self, duration: int):
+    def detect_changes(self):
         logger = get_run_logger()
-
         self.observer.schedule(
             self.event_handler,
             str(self.db_folder),
             recursive=True,
         )
-
         self.observer.start()
         logger.info(f"Observer Started")
 
         try:
-            time.sleep(duration)
+            time.sleep(self.duration)
         finally:
             self.observer.stop()
+            
         self.observer.join()
         logger.info(f"Observer Stopped")
 
-    def detect_changes(self, duration: int = 60) -> List[str]:
-        self.start_detection(duration)
         return self.event_handler.changes
+    
+    def check_changes(self):
+        with open(self.memory_json_path, "r") as file:
+            memory_data = pd.DataFrame(json.load(file))
+        
+        current_file_data = []
+        for file in self.db_folder.rglob("*"):
+            file_data = {}
+            file_name = file.parts[-1]
+            domain = file.parts[-2]
+            
+            if file_name.split(".")[-1] != "pdf":
+                continue
+            
+            date_modified = datetime.fromtimestamp(file.stat().st_mtime)
+            date_modified_structured = f"{date_modified.month}/{date_modified.day}/{date_modified.year} {date_modified.hour}:{date_modified.minute}"
+            file_data["file_path"] = f"db/domains/{domain}/{file_name}"
+            file_data["date_modified"] = date_modified_structured
+            current_file_data.append(file_data)
+            
+        current_file_data = pd.DataFrame(current_file_data)
+        print()
 
 @flow
 def db_file_detection_flow():
     logger = get_run_logger()
     logger.info("Starting DB File Detection Flow")
-    changes = detect_changes_task(duration=60)
+    changes = detect_changes_task()
     
     if changes:
         logger.info(f"Detected {len(changes)} change(s):")
@@ -84,13 +109,17 @@ def db_file_detection_flow():
     logger.info(f"Flow completed. Total changes detected: {len(changes)}")
     return changes
 
-@task(cache_key_fn=task_input_hash, cache_expiration=timedelta(minutes=29))
-def detect_changes_task(duration: int = 60) -> List[str]:
+@task(retries=3)
+def detect_changes_task() -> List[str]:
     logger = get_run_logger()
 
-    file_detector = FileDetector()
-    logger.info(f"Starting detect_changes_task for folder {file_detector.db_folder} with duration {duration}")
-    changes = file_detector.detect_changes(duration=duration)
+    file_detector = FileDetector(duration=10)
+    logger.info(f"Starting detect_changes_task for folder {file_detector.db_folder} with duration {file_detector.duration}")
+    changes = file_detector.detect_changes()
     
     logger.info(f"Detected {len(changes)} changes: {changes}")
     return changes
+
+if __name__ == "__main__":
+    detector = FileDetector()
+    data = detector.check_changes()
