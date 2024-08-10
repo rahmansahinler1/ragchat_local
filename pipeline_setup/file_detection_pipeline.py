@@ -1,14 +1,11 @@
-from datetime import timedelta
-from typing import List, Optional
+from typing import List, Optional, Dict
 from pathlib import Path
-import pandas as pd
-import time
 from datetime import datetime
 import json
+import time
 
 from prefect.deployments import Deployment
 from prefect import task, flow, get_run_logger
-from prefect.tasks import task_input_hash
 
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
@@ -17,7 +14,7 @@ from watchdog.events import FileSystemEventHandler
 class DBFileDetectionFlow:
     def __init__(
             self,
-            interval: Optional[int] = 1800,
+            interval: Optional[int] = 600,
         ):
         self.deployment_name = "DB File Detection"
         self.interval = interval
@@ -46,8 +43,9 @@ class FileDetector:
         duration: Optional[int] = 300
     ):
         self.duration = duration
-        self.db_folder = Path(__file__).resolve().parent.parent / "db" / "domains"
-        self.memory_json_path = Path(__file__).resolve().parent.parent / "utils" / "memory.json"
+        self.db_folder_path = ""
+        self.memory_json_path = ""
+        self.config_json_path = Path(__file__).resolve().parent.parent / "utils" / "config.json"
         self.event_handler = FileChangeHandler()
         self.observer = Observer()
 
@@ -55,7 +53,7 @@ class FileDetector:
         logger = get_run_logger()
         self.observer.schedule(
             self.event_handler,
-            str(self.db_folder),
+            str(self.db_folder_path),
             recursive=True,
         )
         self.observer.start()
@@ -72,11 +70,14 @@ class FileDetector:
         return self.event_handler.changes
     
     def check_changes(self):
+        changes = []
+        # Load memory db information
         with open(self.memory_json_path, "r") as file:
-            memory_data = pd.DataFrame(json.load(file))
+            memory_data = json.load(file)
         
+        # Load current db information
         current_file_data = []
-        for file in self.db_folder.rglob("*"):
+        for file in self.db_folder_path.rglob("*"):
             file_data = {}
             file_name = file.parts[-1]
             domain = file.parts[-2]
@@ -89,37 +90,82 @@ class FileDetector:
             file_data["file_path"] = f"db/domains/{domain}/{file_name}"
             file_data["date_modified"] = date_modified_structured
             current_file_data.append(file_data)
-            
-        current_file_data = pd.DataFrame(current_file_data)
-        # :TODO: Add File change detection logic
+
+        # Check differences
+        for _, data in enumerate(current_file_data):
+            if data in memory_data:
+                continue
+            memory_data.append(data)
+            changes.append(data)
+        
+        # Overwrite the changes if any
+        if changes:
+            with open(self.memory_json_path, "w") as file:
+                memory_data = json.dump(memory_data, file, indent=4)
+
+        return changes
+    
+    def check_db_path(self):
+        try:
+            with open(self.config_json_path, "r") as file:
+                config_data = json.load(file)
+        except FileNotFoundError:
+            print(f"Configuration file can't be located in {self.config_json_path}")
+            return
+
+        if config_data[0]["db_path"]:
+            self.db_folder_path = Path(config_data[0]["db_path"])
+            self.memory_json_path = self.db_folder_path / "memory.json"
+        else:
+            if config_data[0]["environment"] == "Windows":
+                db_path = f"C:/Users/{config_data[0]["user_name"]}/Documents/ragchat_local/db"
+                config_data[0]["db_path"] = db_path
+                self.db_folder_path = Path(db_path)
+                self.memory_json_path = self.db_folder_path / "memory.json"
+                with open(self.config_json_path, "w") as file:
+                    config_data = json.dump(config_data, file, indent=4)
+            elif config_data[0]["environment"] == "MacOS":
+                # :TODO: Add configuration for macos
+                raise EnvironmentError("MacOS is not yet configured for RAG Chat Local!")
+            else:
+                raise EnvironmentError("Only Windows and MacOS is configured for RAG Chat Local!")
 
 @flow
 def db_file_detection_flow():
     logger = get_run_logger()
-    logger.info("Starting DB File Detection Flow")
-    changes = detect_changes_task()
+    logger.info("Starting file change detection...")
+    changes = check_changes_task()
     
     if changes:
-        logger.info(f"Detected {len(changes)} change(s):")
-        for change in changes:
-            logger.info(f"  {change}")
+            logger.info(f"Embedding of new files starting!")
     else:
         logger.info("No changes detected during this flow run.")
-    
-    logger.info(f"Flow completed. Total changes detected: {len(changes)}")
-    return changes
 
 @task(retries=3)
-def detect_changes_task() -> List[str]:
+def check_changes_task() -> List[dict]:
+    changes = []
+    # Initialize logger and file detector
     logger = get_run_logger()
+    file_detector = FileDetector(duration=30)
 
-    file_detector = FileDetector(duration=10)
-    logger.info(f"Starting detect_changes_task for folder {file_detector.db_folder} with duration {file_detector.duration}")
-    changes = file_detector.detect_changes()
+    # Check the absolute database folder path
+    logger.info("Database folder path is under check...")
+    file_detector.db_folder = file_detector.check_db_path()
+    time.sleep(2)
+    logger.info(f"Database folder path is valid")
     
-    logger.info(f"Detected {len(changes)} changes: {changes}")
+    # Check memory changes
+    logger.info(f"Checking memory changes...")
+    changes = file_detector.check_changes()
+    if changes:
+        logger.info(f"Detected {len(changes)} changes from memory!")
+        for i, change in enumerate(changes):
+            logger.info(f"Detection {i + 1}: {change["file_path"]}")
+    else:
+        logger.info(f"Memory is sync.")
     return changes
 
 if __name__ == "__main__":
     detector = FileDetector()
-    data = detector.check_changes()
+    detector.check_db_path()
+    detector.check_changes()
