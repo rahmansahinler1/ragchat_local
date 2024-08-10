@@ -1,4 +1,4 @@
-from typing import List, Optional, Dict
+from typing import List, Optional
 from pathlib import Path
 from datetime import datetime
 import json
@@ -10,21 +10,39 @@ from prefect import task, flow, get_run_logger
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
+from functions.reading_functions import ReadingFunctions
+from functions.embedding_functions import EmbeddingFunctions
+from functions.indexing_functions import IndexingFunctions
+from functions.chatbot_functions import ChatbotFunctions
+
 
 class DBFileDetectionFlow:
     def __init__(
             self,
             interval: Optional[int] = 600,
         ):
-        self.deployment_name = "DB File Detection"
+        self.deployment_name = "File Detection Flow"
         self.interval = interval
 
     def create_deployment(self):
         deployment = Deployment.build_from_flow(
-            flow=db_file_detection_flow,
-            name="DB File Detection",
+            flow=detection_flow,
+            name=self.deployment_name,
             schedule={"interval": self.interval},
-            work_queue_name="db_file_detection",
+            work_queue_name="file_detection",
+            work_pool_name="local-worker",
+        )
+        deployment.apply()
+
+class FileProcessingFlow:
+    def __init__(self):
+        self.deployment_name = "File Processing Flow"
+
+    def create_deployment(self):
+        deployment = Deployment.build_from_flow(
+            flow=processing_flow,
+            name=self.deployment_name,
+            work_queue_name="file_processing",
             work_pool_name="local-worker",
         )
         deployment.apply()
@@ -130,8 +148,19 @@ class FileDetector:
             else:
                 raise EnvironmentError("Only Windows and MacOS is configured for RAG Chat Local!")
 
+class FileProcessor:
+    def __init__(
+            self,
+            changed_file_paths: List[str],
+    ):
+        self.ef = EmbeddingFunctions()
+        self.cf = ChatbotFunctions()
+        self.rf = ReadingFunctions()
+        self.indf = IndexingFunctions()
+        self.changed_file_paths = changed_file_paths
+
 @flow
-def db_file_detection_flow():
+def detection_flow():
     logger = get_run_logger()
     logger.info("Starting file change detection...")
     changes = check_changes_task()
@@ -140,6 +169,11 @@ def db_file_detection_flow():
             logger.info(f"Embedding of new files starting!")
     else:
         logger.info("No changes detected during this flow run.")
+
+@flow
+def processing_flow():
+    #:TODO: insert file processing flow
+    pass
 
 @task(retries=3)
 def check_changes_task() -> List[dict]:
@@ -164,6 +198,11 @@ def check_changes_task() -> List[dict]:
     else:
         logger.info(f"Memory is sync.")
     return changes
+
+@task(retries=3)
+def embedding_task():
+    #:TODO: insert embedding task
+    pass
 
 if __name__ == "__main__":
     detector = FileDetector()

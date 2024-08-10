@@ -9,7 +9,7 @@ class EmbeddingFunctions:
         load_dotenv()
         self.client = OpenAI()
 
-    def create_vector_embeddings_from_pdf(self,batch_size=100):
+    def create_vector_embeddings_from_pdf(self, batch_size=100):
         pdf_embeddings = []
         sentences = globals.pdf_sentences
         batches = [sentences[i:i+batch_size] for i in range(0,len(sentences), batch_size)]
