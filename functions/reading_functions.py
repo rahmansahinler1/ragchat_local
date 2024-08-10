@@ -10,9 +10,6 @@ class ReadingFunctions:
         pass
 
     def read_pdf(self, pdf_path: str):
-        """
-        The code is responsible for reading a PDF file and splitting it into individual pages.
-        """
         # Open the PDF file
         with open(pdf_path, "rb") as file:
             reader = PyPDF2.PdfReader(file)
@@ -28,9 +25,6 @@ class ReadingFunctions:
                         globals.pdf_sentences.append(sentence)
 
     def select_pdf_file(self):
-        """
-        The code is responsible for selecting a folder containing PDF files.
-        """
         initial_dir = Path(__file__).resolve().parent.parent / "docs"
         pdf_path = filedialog.askopenfilename(
             title="Select PDF File",

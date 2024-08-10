@@ -9,10 +9,6 @@ class IndexingFunctions:
         pass
 
     def create_index(self):
-        """
-        This function will create the index from given vector.
-        It uses facebook's faiss library to index.
-        """
         dimension = len(globals.pdf_embeddings[0])
         vector = globals.pdf_embeddings
         index = faiss.IndexFlatL2(dimension)
