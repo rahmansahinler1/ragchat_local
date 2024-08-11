@@ -28,8 +28,8 @@ class IndexingFunctions:
         end_time = time.time()
         total_time = end_time-start_time #Calculating total_emd_time 
 
-        globals.kpi_dict["total_ind_time"] = total_time #Inputing total_emd_time value to kpi dictionary 
-        globals.kpi_dict["avg_ind_time"] = total_time/len(globals.pdf_embeddings)#Inputing avg_emd_time value to kpi dictionary 
+        globals.kpi_dict["total_ind_time (s)"] = round(total_time,4) #Inputing total_emd_time value to kpi dictionary 
+        globals.kpi_dict["avg_ind_time (s)"] = round(total_time/len(globals.pdf_embeddings),8)#Inputing avg_emd_time value to kpi dictionary 
 
 
     def load_index(self):

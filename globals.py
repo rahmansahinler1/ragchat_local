@@ -6,8 +6,8 @@ kpi_dict = {
     "timestamp": None,
     "batch_size": None,
     "sentence_amount": None,
-    "total_emd_time": None,
-    "total_ind_time": None,
-    "avg_emd_time": None,
-    "avg_ind_time": None
+    "total_emd_time (s)": None,
+    "total_ind_time (s)": None,
+    "avg_emd_time (s)": None,
+    "avg_ind_time (s)": None
     }
