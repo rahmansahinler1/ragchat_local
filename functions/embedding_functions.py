@@ -1,6 +1,7 @@
 import numpy as np
 from openai import OpenAI
 from dotenv import load_dotenv
+from typing import List
 import globals
 
 
@@ -9,9 +10,12 @@ class EmbeddingFunctions:
         load_dotenv()
         self.client = OpenAI()
 
-    def create_vector_embeddings_from_pdf(self, batch_size=100):
+    def create_vector_embeddings_from_sentences(
+            self,
+            sentences: List[str],
+            batch_size: int = 100
+        ):
         pdf_embeddings = []
-        sentences = globals.pdf_sentences
         batches = [sentences[i:i+batch_size] for i in range(0,len(sentences), batch_size)]
         
         for batch in batches:
@@ -20,7 +24,7 @@ class EmbeddingFunctions:
             )
             pdf_embeddings.extend(sentence_embedding.data)
 
-        globals.pdf_embeddings = np.array(
+        return np.array(
             [x.embedding for x in pdf_embeddings], float
         )
 

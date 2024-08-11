@@ -1,8 +1,11 @@
-from typing import List, Optional
+from typing import List, Optional, Dict
 from pathlib import Path
 from datetime import datetime
+import numpy as np
+import re
 import json
 import time
+import faiss
 
 from prefect.deployments import Deployment
 from prefect import task, flow, get_run_logger
@@ -16,7 +19,7 @@ from functions.indexing_functions import IndexingFunctions
 from functions.chatbot_functions import ChatbotFunctions
 
 
-class DBFileDetectionFlow:
+class FileDetectionFlow:
     def __init__(
             self,
             interval: Optional[int] = 600,
@@ -151,60 +154,99 @@ class FileDetector:
 class FileProcessor:
     def __init__(
             self,
-            changed_file_paths: List[str],
+            changed_files: List[str],
+            change_dict: Dict = {},
     ):
         self.ef = EmbeddingFunctions()
         self.cf = ChatbotFunctions()
         self.rf = ReadingFunctions()
         self.indf = IndexingFunctions()
-        self.changed_file_paths = changed_file_paths
+        self.changed_files = changed_files
+        self.change_dict = change_dict
+        self.main_folder_path = Path(__file__).resolve().parent.parent
+    
+    def clean_processor(self):
+        self.changed_file_paths = []
+        self.change_dict = {}
 
 @flow
 def detection_flow():
     logger = get_run_logger()
     logger.info("Starting file change detection...")
-    changes = check_changes_task()
+    changes, db_folder_path = check_changes_task()
     
     if changes:
-            logger.info(f"Embedding of new files starting!")
+            logger.info(f"File changes detected. Starting processing flow...")
+            processing_flow(db_folder_path=db_folder_path, changed_file_paths=changes)
     else:
         logger.info("No changes detected during this flow run.")
 
 @flow
-def processing_flow():
-    #:TODO: insert file processing flow
-    pass
+def processing_flow(db_folder_path: Path, changed_files: List[str] = []):
+    logger = get_run_logger()
+    if changed_files:
+        update_db_task(changes=changed_files, db_folder_path=db_folder_path)
+
+
 
 @task(retries=3)
 def check_changes_task() -> List[dict]:
     changes = []
     # Initialize logger and file detector
     logger = get_run_logger()
-    file_detector = FileDetector(duration=30)
+    detector = FileDetector(duration=30)
 
     # Check the absolute database folder path
     logger.info("Database folder path is under check...")
-    file_detector.db_folder = file_detector.check_db_path()
+    detector.db_folder = detector.check_db_path()
     time.sleep(2)
     logger.info(f"Database folder path is valid")
     
     # Check memory changes
     logger.info(f"Checking memory changes...")
-    changes = file_detector.check_changes()
+    changes = detector.check_changes()
     if changes:
         logger.info(f"Detected {len(changes)} changes from memory!")
         for i, change in enumerate(changes):
             logger.info(f"Detection {i + 1}: {change["file_path"]}")
     else:
         logger.info(f"Memory is sync.")
-    return changes
+    return changes, detector.db_folder_path
 
 @task(retries=3)
-def embedding_task():
-    #:TODO: insert embedding task
-    pass
+def update_db_task(changes, db_folder_path):
+    processor = FileProcessor(changed_files=changes)
+    # Read changed pdf files
+    for change in changes:
+        # Create embeddings
+        sentences = processor.rf.read_pdf(pdf_path=change["file_path"])
+        embeddings = processor.ef.create_vector_embeddings_from_sentences(sentences=sentences)
 
-if __name__ == "__main__":
-    detector = FileDetector()
-    detector.check_db_path()
-    detector.check_changes()
+        # Detect changed domain
+        pattern = r'domain\d+'
+        match = re.search(pattern, change["file_path"])
+
+        # Store changes in processor
+        if match:
+            domain = match[0]
+            if domain in processor.change_dict.keys():
+                processor.change_dict[domain]["sentences"].extend(sentences)
+                processor.change_dict[domain]["embeddings"] = np.vstack((processor.change_dict[domain]["embeddings"], embeddings))
+            else:
+                processor.change_dict[domain] = {"sentences": sentences, "embeddings": embeddings}
+        
+    # Update corresponding index
+    for key, value in processor.change_dict.items():
+        # Open corresponding index
+        index_path = db_folder_path / "indexes" / key / ".pickle"
+        index_object = processor.indf(index_path)
+        index =  faiss.deserialize_index(index_object["index"])
+        sentences = index_object["sentences"]
+
+        # Append necessary parts to the index
+        index.add(value["embeddings"])
+        sentences.extend(value["sentences"])
+
+        # Overwrite the index
+        index_bytes = faiss.serialize_index(index=index)
+        processor.indf.save_index(index_bytes=index_bytes, sentences=sentences, save_path=index_path)
