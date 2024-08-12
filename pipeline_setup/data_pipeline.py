@@ -149,19 +149,16 @@ class FileDetector:
 class FileProcessor:
     def __init__(
             self,
-            changed_files: List[str],
             change_dict: Dict = {},
     ):
         self.ef = EmbeddingFunctions()
         self.cf = ChatbotFunctions()
         self.rf = ReadingFunctions()
         self.indf = IndexingFunctions()
-        self.changed_files = changed_files
         self.change_dict = change_dict
         self.main_folder_path = Path(__file__).resolve().parent.parent
     
     def clean_processor(self):
-        self.changed_file_paths = []
         self.change_dict = {}
     
     def update_memory(self, memory_data, memory_json_path:Path):
@@ -176,15 +173,20 @@ def detection_flow():
     
     if changes:
         logger.info(f"File changes detected. Starting processing flow...")
-        processing_flow(db_folder_path=db_folder_path, changed_file_paths=changes)
+        processing_flow(db_folder_path=db_folder_path, changed_files=changes, updated_memory=updated_memory)
     else:
         logger.info("No changes detected during this flow run.")
 
 @flow
-def processing_flow(db_folder_path: Path, updated_memory:List, changed_files: List[str] = []):
+def processing_flow(
+    db_folder_path: Path,
+    updated_memory:List[Dict[str, str]],
+    changed_files: List[Dict[str, str]] = []
+    ):
     logger = get_run_logger()
     logger.info("Starting file processing flow...")
     update_db_task(changes=changed_files, db_folder_path=db_folder_path, updated_memory=updated_memory)
+    logger.info("Processing flow finished successfully!")
 
 @task(retries=3)
 def check_changes_task() -> List[dict]:
@@ -210,8 +212,12 @@ def check_changes_task() -> List[dict]:
     return changes, detector.db_folder_path, memory_data
 
 @task(retries=3)
-def update_db_task(changes, db_folder_path, updated_memory):
-    processor = FileProcessor(changed_files=changes)
+def update_db_task(
+    changes: List[Dict[str, str]],
+    db_folder_path: Path,
+    updated_memory: List[Dict[str, str]]
+    ):
+    processor = FileProcessor()
     logger = get_run_logger()
     logger.info("Embedding the new sentences...")
     # Read changed pdf files

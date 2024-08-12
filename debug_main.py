@@ -11,7 +11,7 @@ detector = FileDetector()
 detector.check_db_path()
 changes, updated_memory_data = detector.check_changes()
 if changes:
-    processor = FileProcessor(changed_files=changes)
+    processor = FileProcessor()
     # Read changed pdf files
     for change in changes:
         # Create embeddings

@@ -2,7 +2,7 @@ from app.application import App
 from pipeline_setup.data_pipeline import FileDetectionFlow
 
 
-CREATE_DEPLOYMENT = False
+CREATE_DEPLOYMENT = True
 OPEN_GUI = False
 
 if __name__ == "__main__":
