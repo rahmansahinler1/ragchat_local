@@ -1,32 +1,34 @@
 import faiss
-import globals
 import pickle
-from tkinter import filedialog
+import numpy as np
+from typing import List
+from pathlib import Path
 
 
 class IndexingFunctions:
     def __init__(self):
         pass
 
-    def create_index(self):
-        dimension = len(globals.pdf_embeddings[0])
-        vector = globals.pdf_embeddings
+    def create_index_bytes(self,
+                    embeddings:np.ndarray,
+        ):
+        dimension = len(embeddings[0])
         index = faiss.IndexFlatL2(dimension)
-        index.add(vector)
-        globals.index = index
-        index_bytes = faiss.serialize_index(index=index)
-        self._save_index(index_bytes=index_bytes)
+        index.add(embeddings)
+        return faiss.serialize_index(index=index)
 
-    def load_index(self):
-        index_object_path = filedialog.askopenfilename(title="Select Index")
-        with open(index_object_path, "rb") as f:
+    def load_index(self,
+                   index_path: Path
+        ):
+        with open(index_path, "rb") as f:
             index_object = pickle.load(f)
-        globals.index = faiss.deserialize_index(index_object["index"])
-        globals.pdf_sentences = index_object["sentences"]
+        return index_object
 
-    def _save_index(self, index_bytes):
-        index_object = {"index": index_bytes, "sentences": globals.pdf_sentences}
-        name = globals.pdf_path.split("/")[-1].split(".")[0]
-        path = "db/" + name
-        with open(path + ".pickle", "wb") as f:
+    def save_index(self,
+                   index_bytes,
+                   sentences,
+                   save_path
+        ):
+        index_object = {"index": index_bytes, "sentences": sentences}
+        with open(save_path, "wb") as f:
             pickle.dump(index_object, f)

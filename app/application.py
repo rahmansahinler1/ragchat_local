@@ -1,21 +1,22 @@
 import tkinter as tk
 from tkinter import *
+
 from functions.reading_functions import ReadingFunctions
 from functions.embedding_functions import EmbeddingFunctions
 from functions.indexing_functions import IndexingFunctions
 from functions.chatbot_functions import ChatbotFunctions
-import globals
-import datetime
 
-ef = EmbeddingFunctions()
-cf = ChatbotFunctions()
-rf = ReadingFunctions()
-indf = IndexingFunctions()
+import globals
 
 
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
+        
+        self.ef = EmbeddingFunctions()
+        self.cf = ChatbotFunctions()
+        self.rf = ReadingFunctions()
+        self.indf = IndexingFunctions()
 
         # Base window
         self.geometry("960x720")
@@ -28,8 +29,8 @@ class App(tk.Tk):
             self,
             text="Select PDF",
             command=lambda: [
-                rf.select_pdf_file(),
-                rf.read_pdf(pdf_path=globals.pdf_path),
+                self.rf.select_pdf_file(),
+                self.rf.read_pdf(pdf_path=globals.pdf_path),
                 self.display_message(
                     message="Selected PDF: " + globals.pdf_path.split("/")[-1],
                     sender="system",
@@ -43,8 +44,8 @@ class App(tk.Tk):
             self,
             text="Create Index",
             command=lambda: [
-                ef.create_vector_embeddings_from_pdf(),
-                indf.create_index(),
+                self.ef.create_vector_embeddings_from_pdf(),
+                self.indf.create_index(),
                 self.display_message(
                     message="Index Created ",
                     sender="system",
@@ -58,7 +59,7 @@ class App(tk.Tk):
             self,
             text="Load Index",
             command=lambda: [
-                indf.load_index(),
+                self.indf.load_index(),
                 self.display_message(
                     message="Index Loaded ",
                     sender="system",
@@ -123,7 +124,7 @@ class App(tk.Tk):
 
     def _create_query_vector(self):
         query = self._take_input()
-        return ef.create_vector_embedding_from_query(query=query)
+        return self.ef.create_vector_embedding_from_query(query=query)
 
     def generate_response(self):
         query = self._take_input()
@@ -137,7 +138,7 @@ class App(tk.Tk):
             context += f"Context {i + 1}: {answer}\n"
         
         # Generate response
-        response = cf.response_generation(query=self._take_input(), context=context)
+        response = self.cf.response_generation(query=self._take_input(), context=context)
 
         # Display response
         self.display_message(message=query, sender="user")

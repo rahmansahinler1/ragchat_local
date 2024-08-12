@@ -1,5 +1,6 @@
 from app.application import App
-from pipeline_setup.file_detection_pipeline import DBFileDetectionFlow
+from pipeline_setup.data_pipeline import FileDetectionFlow
+
 
 CREATE_DEPLOYMENT = True
 OPEN_GUI = False
@@ -10,10 +11,5 @@ if __name__ == "__main__":
         app.mainloop()
 
     if CREATE_DEPLOYMENT:
-        detection_flow = DBFileDetectionFlow(interval=600)
+        detection_flow = FileDetectionFlow(interval=600)
         detection_flow.create_deployment()
-
-# TODO: Test it with larger pdf
-# TODO: Indexing with more than one pdf
-# TODO: Search with more than one pdf
-# TODO: Add index metadata
