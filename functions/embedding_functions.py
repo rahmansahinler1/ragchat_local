@@ -13,7 +13,7 @@ class EmbeddingFunctions:
     def create_vector_embeddings_from_sentences(
             self,
             sentences: List[str],
-            batch_size: int = 100
+            batch_size: int = 500
         ):
         pdf_embeddings = []
         batches = [sentences[i:i+batch_size] for i in range(0,len(sentences), batch_size)]

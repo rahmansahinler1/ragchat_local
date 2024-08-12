@@ -118,13 +118,8 @@ class FileDetector:
                 continue
             memory_data.append(data)
             changes.append(data)
-        
-        # Overwrite the changes if any
-        if changes:
-            with open(self.memory_json_path, "w") as file:
-                memory_data = json.dump(memory_data, file, indent=4)
 
-        return changes
+        return changes, memory_data
     
     def check_db_path(self):
         try:
@@ -168,26 +163,28 @@ class FileProcessor:
     def clean_processor(self):
         self.changed_file_paths = []
         self.change_dict = {}
+    
+    def update_memory(self, memory_data, memory_json_path:Path):
+        with open(memory_json_path, "w") as file:
+            memory_data = json.dump(memory_data, file, indent=4)
 
 @flow
 def detection_flow():
     logger = get_run_logger()
-    logger.info("Starting file change detection...")
-    changes, db_folder_path = check_changes_task()
+    logger.info("Starting file change detection flow...")
+    changes, db_folder_path, updated_memory = check_changes_task()
     
     if changes:
-            logger.info(f"File changes detected. Starting processing flow...")
-            processing_flow(db_folder_path=db_folder_path, changed_file_paths=changes)
+        logger.info(f"File changes detected. Starting processing flow...")
+        processing_flow(db_folder_path=db_folder_path, changed_file_paths=changes)
     else:
         logger.info("No changes detected during this flow run.")
 
 @flow
-def processing_flow(db_folder_path: Path, changed_files: List[str] = []):
+def processing_flow(db_folder_path: Path, updated_memory:List, changed_files: List[str] = []):
     logger = get_run_logger()
-    if changed_files:
-        update_db_task(changes=changed_files, db_folder_path=db_folder_path)
-
-
+    logger.info("Starting file processing flow...")
+    update_db_task(changes=changed_files, db_folder_path=db_folder_path, updated_memory=updated_memory)
 
 @task(retries=3)
 def check_changes_task() -> List[dict]:
@@ -199,23 +196,24 @@ def check_changes_task() -> List[dict]:
     # Check the absolute database folder path
     logger.info("Database folder path is under check...")
     detector.db_folder = detector.check_db_path()
-    time.sleep(2)
     logger.info(f"Database folder path is valid")
     
     # Check memory changes
     logger.info(f"Checking memory changes...")
-    changes = detector.check_changes()
+    changes, memory_data = detector.check_changes()
     if changes:
         logger.info(f"Detected {len(changes)} changes from memory!")
         for i, change in enumerate(changes):
-            logger.info(f"Detection {i + 1}: {change["file_path"]}")
+            logger.info(f"Change {i + 1}: {change["file_path"]}")
     else:
         logger.info(f"Memory is sync.")
-    return changes, detector.db_folder_path
+    return changes, detector.db_folder_path, memory_data
 
 @task(retries=3)
-def update_db_task(changes, db_folder_path):
+def update_db_task(changes, db_folder_path, updated_memory):
     processor = FileProcessor(changed_files=changes)
+    logger = get_run_logger()
+    logger.info("Embedding the new sentences...")
     # Read changed pdf files
     for change in changes:
         # Create embeddings
@@ -225,8 +223,6 @@ def update_db_task(changes, db_folder_path):
         # Detect changed domain
         pattern = r'domain\d+'
         match = re.search(pattern, change["file_path"])
-
-        # Store changes in processor
         if match:
             domain = match[0]
             if domain in processor.change_dict.keys():
@@ -234,19 +230,30 @@ def update_db_task(changes, db_folder_path):
                 processor.change_dict[domain]["embeddings"] = np.vstack((processor.change_dict[domain]["embeddings"], embeddings))
             else:
                 processor.change_dict[domain] = {"sentences": sentences, "embeddings": embeddings}
-        
+    
+    logger.info("Updating indexes...")
     # Update corresponding index
     for key, value in processor.change_dict.items():
-        # Open corresponding index
-        index_path = db_folder_path / "indexes" / key / ".pickle"
-        index_object = processor.indf(index_path)
-        index =  faiss.deserialize_index(index_object["index"])
-        sentences = index_object["sentences"]
+        # Open corresponding index if already created, if not initialize one
+        index_path = db_folder_path / "indexes" / (key + ".pickle")
+        try:
+            index_object = processor.indf.load_index(index_path)
+            index =  faiss.deserialize_index(index_object["index"])
+            sentences = index_object["sentences"]
 
-        # Append necessary parts to the index
-        index.add(value["embeddings"])
-        sentences.extend(value["sentences"])
+            # Append necessary parts to the index
+            index.add(value["embeddings"])
+            sentences.extend(value["sentences"])
 
-        # Overwrite the index
-        index_bytes = faiss.serialize_index(index=index)
-        processor.indf.save_index(index_bytes=index_bytes, sentences=sentences, save_path=index_path)
+            # Overwrite the index
+            index_bytes = faiss.serialize_index(index=index)
+            processor.indf.save_index(index_bytes=index_bytes, sentences=sentences, save_path=index_path)
+        except FileNotFoundError:
+            # Create the index
+            index_bytes = processor.indf.create_index_bytes(embeddings=embeddings)
+            processor.indf.save_index(index_bytes=index_bytes, sentences=sentences, save_path=index_path)         
+
+    # Update memory
+    memory_json_path = db_folder_path / "memory.json"
+    processor.update_memory(memory_json_path=memory_json_path, memory_data=updated_memory)
+    logger.info("New files indexed. Memory updated.")
