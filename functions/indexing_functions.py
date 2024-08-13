@@ -19,7 +19,7 @@ class IndexingFunctions:
        
         dimension = len(globals.pdf_embeddings[0])
         vector = globals.pdf_embeddings
-        index = faiss.IndexFlatL2(dimension)
+        index = faiss.IndexFlatL2(dimension) 
         index.add(vector)
         globals.index = index
         index_bytes = faiss.serialize_index(index=index)

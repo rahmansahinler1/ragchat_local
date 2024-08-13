@@ -12,6 +12,8 @@ __pycache__/
 *.csv
 # .pickle files
 *.pickle
+#.ipynb files
+*.ipynb
 # Distribution / packaging
 .Python
 build/

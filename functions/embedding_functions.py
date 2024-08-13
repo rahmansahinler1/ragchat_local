@@ -10,13 +10,13 @@ class EmbeddingFunctions:
         load_dotenv()
         self.client = OpenAI()
 
-    def create_vector_embeddings_from_pdf(self):
+    def create_vector_embeddings_from_pdf(self,batch_size = 2000):
         pdf_embeddings = []
         total_time = 0
         sentences = globals.pdf_sentences
         globals.kpi_dict["sentence_amount"] = len(sentences) #Inputing sentence_amount value to kpi dictionary
 
-        batch_size = batch_optimization_model.batch_size_calc(len(sentences))#Calling batch optimization model's batch_size_calc function to determine batch size according to input pdf sentence amount
+        #batch_size = batch_optimization_model.batch_size_calc(len(sentences))#Calling batch optimization model's batch_size_calc function to determine batch size according to input pdf sentence amount
         globals.kpi_dict["batch_size"] = batch_size #Inputing batch_size value to kpi dictionary 
 
         batches = [sentences[i:i+batch_size] for i in range(0,len(sentences),batch_size)]

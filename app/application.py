@@ -132,7 +132,7 @@ class App(tk.Tk):
     def generate_response(self):
         query = self._take_input()
         query_vector = self._create_query_vector()
-        _, I = globals.index.search(query_vector, 5)
+        _, I = globals.index.search(query_vector, 5) # to do context cümlelerini genişletme 
 
         # Create context
         context = ""

@@ -2,8 +2,10 @@ from tkinter import filedialog
 from tkinter import *
 from pathlib import Path
 import globals
-import PyPDF2
+import fitz
+import spacy
 
+nlp = spacy.load("en_core_web_sm",disable=[ "tagger", "attribute_ruler", "lemmatizer", "ner","textcat","custom "]) #Initialize spaCy model
 
 class ReadingFunctions:
     def __init__(self):
@@ -14,18 +16,32 @@ class ReadingFunctions:
         The code is responsible for reading a PDF file and splitting it into individual pages.
         """
         # Open the PDF file
-        with open(pdf_path, "rb") as file:
-            reader = PyPDF2.PdfReader(file)
-            num_pages = len(reader.pages)
+        pdf = fitz.open(pdf_path)
+        sentences = []
+        page_texts = []
 
-            # Extract text from each page
-            for page_num in range(num_pages):
-                text = reader.pages[page_num].extract_text()
-                text = text.replace("\n", "")
-                sentences = text.split(".")
-                for sentence in sentences:
-                    if len(sentence) > 15:
-                        globals.pdf_sentences.append(sentence)
+        # Extract text from each page
+        for page in range(pdf.page_count):
+            page = pdf.load_page(page)
+            page_texts.append(page.get_text())
+
+        # Append extract text to a single list 
+        full_text = ' '.join(page_texts)
+
+        #Create text splitting with spaCy
+        docs = nlp(full_text)
+
+        #Create sentences from the input text,strip white space and replace \n with space
+        page_sentences = [sent.text.replace('\n',' ').strip() for sent in docs.sents]
+
+        #Append created sentences to the list
+        sentences.extend(page_sentences)
+
+        #sorted_sentences = sorted(sentences,key=len)
+
+        for sentence in sentences:
+            if len(sentence) > 15:
+                globals.pdf_sentences.append(sentence)
 
     def select_pdf_file(self):
         """
