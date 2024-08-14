@@ -5,7 +5,7 @@ import globals
 import fitz
 import spacy
 
-nlp = spacy.load("en_core_web_sm",disable=[ "tagger", "attribute_ruler", "lemmatizer", "ner","textcat","custom "]) #Initialize spaCy model
+nlp = spacy.load("en_core_web_sm",disable=[ "tagger", "attribute_ruler", "lemmatizer", "ner","textcat","custom "]) #Initialize spaCy model with only needed processing pipeline
 
 class ReadingFunctions:
     def __init__(self):
@@ -38,17 +38,16 @@ class ReadingFunctions:
         sentences.extend(page_sentences)
 
         #Sorting sentences according to length
-        sorted_sentences = sorted(sentences,key=len)
+        #sorted_sentences = sorted(sentences,key=len)
 
+        valid_sentences = []
         #Removing sentences that are shorter than 15
-        i=0
-        while i<len(sorted_sentences):
-            if len(sorted_sentences[i]) < 15:
-                sorted_sentences.pop(i)
-            else:
-                break
+        for sentence in sentences:
+            if len(sentence) > 15:
+                valid_sentences.append(sentence)
+        
         #Adding the sentences to global variable
-        globals.pdf_sentences.extend(sorted_sentences)
+        globals.pdf_sentences.extend(valid_sentences)
 
     def select_pdf_file(self):
         """

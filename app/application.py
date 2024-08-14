@@ -136,10 +136,22 @@ class App(tk.Tk):
 
         # Create context
         context = ""
-        for i, index in enumerate(I[0]):
-            answer = globals.pdf_sentences[index]
-            context += f"Context {i + 1}: {answer}\n"
         
+        window_size = 1 #Enrichment scale
+        enriched_sentences = [] #Initializing list
+        for index in I[0]:
+            start = max(0,index-window_size) #Setting starting sentences of the enrichment
+            end = min(len(globals.pdf_sentences)-1,index+window_size) #Setting ending sentences of the enrichment
+            enriched_sentences.append([start, index, end]) #Appending enlarged sentences
+        
+
+
+        for i, indexes in enumerate(enriched_sentences):
+            answer = ''
+            for sub_index in indexes:
+                answer += globals.pdf_sentences[sub_index] + " "
+            context += f"Context {i + 1}: {answer}\n"
+
         # Generate response
         response = cf.response_generation(query=self._take_input(), context=context)
 
