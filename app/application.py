@@ -76,7 +76,7 @@ class App(tk.Tk):
             self,
             text=">",
             command=lambda: [
-                self.generate_response(),
+                self.generate_response()
             ],
         )
         self.button_ask.place(x=923, y=683, width=37, height=37)
@@ -147,11 +147,14 @@ class App(tk.Tk):
         self.display_message(message=query, sender="user")
         self.display_message(message=response, sender="system")
 
+        #Clear written message
+        self.chatbox_ask.delete("1.0",tk.END)
+
     def display_message(self, message: str, sender: str):
         current_time = datetime.now().strftime("%H:%M:%S")
         if sender == "system":
             message = f"RAG Chat --> {message} at {current_time}"
         else:
             message = f"You --> {message} at {current_time}"
-
+    
         self.chatbox_response.insert(tk.END, message + "\n")

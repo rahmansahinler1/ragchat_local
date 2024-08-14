@@ -37,11 +37,18 @@ class ReadingFunctions:
         #Append created sentences to the list
         sentences.extend(page_sentences)
 
-        #sorted_sentences = sorted(sentences,key=len)
+        #Sorting sentences according to length
+        sorted_sentences = sorted(sentences,key=len)
 
-        for sentence in sentences:
-            if len(sentence) > 15:
-                globals.pdf_sentences.append(sentence)
+        #Removing sentences that are shorter than 15
+        i=0
+        while i<len(sorted_sentences):
+            if len(sorted_sentences[i]) < 15:
+                sorted_sentences.pop(i)
+            else:
+                break
+        #Adding the sentences to global variable
+        globals.pdf_sentences.extend(sorted_sentences)
 
     def select_pdf_file(self):
         """
