@@ -1,5 +1,7 @@
 import tkinter as tk
 from tkinter import *
+from tkinter import font as tkfont
+from PIL import Image, ImageTk
 
 from functions.reading_functions import ReadingFunctions
 from functions.embedding_functions import EmbeddingFunctions
@@ -19,56 +21,14 @@ class App(tk.Tk):
         self.indf = IndexingFunctions()
 
         # Base window
-        self.geometry("960x720")
-        self.title("RAG Chat")
+        self.geometry("1280x720")
+        self.title("App")
         self.resizable(False, False)
-        self.configure(bg="gray26")
+        self.configure(bg="#222222")
+        self.title("ragchat - v0.1")
+        self.wm_iconbitmap("assets/ragchat_icon.ico")
 
-        # Button: Select PDF File
-        self.button_select_pdf = tk.Button(
-            self,
-            text="Select PDF",
-            command=lambda: [
-                self.rf.select_pdf_file(),
-                self.rf.read_pdf(pdf_path=globals.pdf_path),
-                self.display_message(
-                    message="Selected PDF: " + globals.pdf_path.split("/")[-1],
-                    sender="system",
-                ),
-            ],
-        )
-        self.button_select_pdf.place(x=5, y=47, width=175, height=30)
-
-        # Button: Create Index
-        self.button_create_index = tk.Button(
-            self,
-            text="Create Index",
-            command=lambda: [
-                self.ef.create_vector_embeddings_from_pdf(),
-                self.indf.create_index(),
-                self.display_message(
-                    message="Index Created ",
-                    sender="system",
-                ),
-            ],
-        )
-        self.button_create_index.place(x=5, y=87, width=175, height=30)
-
-        # Button: Load Index
-        self.button_load_index = tk.Button(
-            self,
-            text="Load Index",
-            command=lambda: [
-                self.indf.load_index(),
-                self.display_message(
-                    message="Index Loaded ",
-                    sender="system",
-                ),
-            ],
-        )
-        self.button_load_index.place(x=5, y=127, width=175, height=30)
-
-        # Button: Search
+        # Buttons
         self.button_ask = tk.Button(
             self,
             text=">",
@@ -76,47 +36,67 @@ class App(tk.Tk):
                 self.generate_response(),
             ],
         )
-        self.button_ask.place(x=923, y=683, width=37, height=37)
+        self.button_ask.place(x=1070, y=620, width=36, height=36)
 
-        # Labels
-        self.label_manage = Label(self, text="Manage")
-        self.label_manage.config(
-            font=("Helvetica", 16),
-            background="gray14",
-            foreground="white",
-            anchor="center",
+        self.button_select_domain = tk.Button(
+            self,
+            text="S",
+            command=lambda: [
+                None,
+            ],
         )
-        self.label_manage.place(x=0, y=0, width=187, height=39)
+        self.button_select_domain.place(x=1116, y=620, width=36, height=36)
 
-        self.label_chat = Label(self, text="Chat")
-        self.label_chat.config(
-            font=("Helvetica", 16),
-            background="gray14",
+        # Labels and images
+        image = Image.open("assets/ragchat_logo.png")
+        logo_pic = ImageTk.PhotoImage(image)
+        label = Label(self, image=logo_pic)
+        label.image = logo_pic
+        label.place(x=128, y=35, width=115, height=118)
+
+        self.label_ragchat = Label(self, text="ragchat")
+        roboto_font = tkfont.Font(
+            family="Roboto",
+            size=30,
+            weight="bold",
+            slant="roman"
+            )
+        self.label_ragchat.config(
+            font=roboto_font,
+            background="#222222",
             foreground="white",
-            anchor="center",
+            anchor="w",
         )
-        self.label_chat.place(x=187, y=0, width=773, height=39)
+        self.label_ragchat.place(x=248, y=74, width=300, height=45)
 
-        # Response Chatbox
+        self.label_slogan = Label(self, text="What do you want to know?")
+        self.label_slogan.config(
+            font=("Helvetica", 16, "bold"),
+            background="#222222",
+            foreground="white",
+            anchor="w",
+        )
+        self.label_slogan.place(x=248, y=124, width=300, height=20)
+
+        # Chatboxes
         self.chatbox_response = Text(self, wrap=WORD)
         self.chatbox_response.tag_configure("center", justify="center")
         self.chatbox_response.config(
             font=("Times New Roman", 14),
             fg="black",
-            bg="gray85"
+            bg="white"
         )
-        self.chatbox_response.place(x=187, y=39, width=773, height=642)
+        self.chatbox_response.place(x=128, y=160, width=1024, height=450)
 
-        # Message Send Chatbox
         self.chatbox_ask = Text(self, wrap=WORD)
         self.chatbox_ask.tag_configure("center", justify="center")
         self.chatbox_ask.insert(1.0, "Send Message")
         self.chatbox_ask.config(
             font=("Arial", 12),
             fg="black",
-            bg="gray85"
+            bg="white"
         )
-        self.chatbox_ask.place(x=187, y=683, width=734, height=37)
+        self.chatbox_ask.place(x=128, y=620, width=932, height=36)
 
     def _take_input(self):
         input = self.chatbox_ask.get("1.0", "end-1c")
