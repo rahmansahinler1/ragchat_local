@@ -3,22 +3,21 @@ from tkinter import *
 from tkinter import font as tkfont
 from PIL import Image, ImageTk
 
-from functions.reading_functions import ReadingFunctions
-from functions.embedding_functions import EmbeddingFunctions
-from functions.indexing_functions import IndexingFunctions
-from functions.chatbot_functions import ChatbotFunctions
+from pathlib import Path
+import json
 
-import globals
+from app.settings_window import Window
 
 
 class App(tk.Tk):
-    def __init__(self):
+    def __init__(
+            self,
+        ):
         super().__init__()
-        
-        self.ef = EmbeddingFunctions()
-        self.cf = ChatbotFunctions()
-        self.rf = ReadingFunctions()
-        self.indf = IndexingFunctions()
+        # Initialize necessary folders
+        self.config_file_path = Path(__file__).resolve().parent.parent / "utils" / "config.json"
+        self.db_folder_path = self.get_db_folder_path(self.config_file_path)
+        self.domain_folders = self.get_domain_folder_list(db_folder_path=self.db_folder_path)
 
         # Base window
         self.geometry("1280x720")
@@ -42,7 +41,7 @@ class App(tk.Tk):
             self,
             text="S",
             command=lambda: [
-                None,
+                self.open_settings(),
             ],
         )
         self.button_select_domain.place(x=1116, y=620, width=36, height=36)
@@ -97,6 +96,26 @@ class App(tk.Tk):
             bg="white"
         )
         self.chatbox_ask.place(x=128, y=620, width=932, height=36)
+    
+    def get_db_folder_path(self,
+                           config_file_path: Path
+        ):
+        with open(config_file_path, 'r') as file:
+            config = json.load(file)
+        return config[0]["db_path"]
+
+    def get_domain_folder_list(self,
+                               db_folder_path: str
+        ):
+        domain_folder = Path(db_folder_path) / "domains"
+        domains = [folder.name for folder in domain_folder.iterdir() if folder.is_dir()]
+        return domains
+    
+    def open_settings(self):
+        settings_window = Window(
+            domain_folders=self.domain_folders,
+            config_file_path=self.config_file_path
+        )
 
     def _take_input(self):
         input = self.chatbox_ask.get("1.0", "end-1c")
