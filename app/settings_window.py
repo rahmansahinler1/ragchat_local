@@ -1,11 +1,14 @@
 from tkinter import *
 import tkinter as tk
+from tkinter import messagebox
 from tkinter import font as tkfont
 from typing import List
 from PIL import Image, ImageTk
 from pathlib import Path
 import json
 import globals
+from functions.indexing_functions import IndexingFunctions
+import faiss
 
 
 class Window(tk.Toplevel):
@@ -15,9 +18,12 @@ class Window(tk.Toplevel):
             config_file_path: Path,
         ):
         super().__init__()
+        self.main_folder_path = Path(__file__).resolve().parent.parent
         self.domain_folders = domain_folders
         self.config_file_path = config_file_path
         self.resources_folder_path = self.get_resources_folder_path()
+        self.indf = IndexingFunctions()
+        self.protocol("WM_DELETE_WINDOW", self.on_close)
 
         # Base window
         self.geometry("640x720+100+100")
@@ -130,10 +136,17 @@ class Window(tk.Toplevel):
         if selected_indices:
             selected_item = self.listbox_domains.get(selected_indices[0])
             globals.selected_domain = selected_item.replace('--> ', '')
-            print(f"Selected domain: {globals.selected_domain}") 
+            print(f"Selected domain: {globals.selected_domain}")
 
-    def update_selection(self):
-        pass
+    def on_close(self):
+        index_path = self.main_folder_path / "db"  / "indexes" / (globals.selected_domain + ".pickle")
+        try:
+            index_object = self.indf.load_index(index_path=index_path)
+            globals.index = faiss.deserialize_index(index_object["index"])
+            globals.sentences = index_object["sentences"]
+        except FileNotFoundError:
+            messagebox.showerror("Error!", "Index could not be found with your domain!")
+        self.destroy()
 
     def get_resources_folder_path(self):
         with open(self.config_file_path, 'r') as file:

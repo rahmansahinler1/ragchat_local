@@ -1,5 +1,5 @@
 pdf_path = None
 pdf_embeddings = None
-pdf_sentences = []
+sentences = []
 index = None
 selected_domain = None

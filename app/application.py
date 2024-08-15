@@ -7,6 +7,9 @@ from pathlib import Path
 import json
 
 from app.settings_window import Window
+from functions.embedding_functions import EmbeddingFunctions
+from functions.chatbot_functions import ChatbotFunctions
+import globals
 
 
 class App(tk.Tk):
@@ -14,6 +17,10 @@ class App(tk.Tk):
             self,
         ):
         super().__init__()
+        # Initialize funtion calls
+        self.ef = EmbeddingFunctions()
+        self.cf = ChatbotFunctions()
+
         # Initialize necessary folders
         self.config_file_path = Path(__file__).resolve().parent.parent / "utils" / "config.json"
         self.db_folder_path = self.get_db_folder_path(self.config_file_path)
@@ -133,7 +140,7 @@ class App(tk.Tk):
         # Create context
         context = ""
         for i, index in enumerate(I[0]):
-            answer = globals.pdf_sentences[index]
+            answer = globals.sentences[index]
             context += f"Context {i + 1}: {answer}\n"
         
         # Generate response
