@@ -50,6 +50,7 @@ class App(tk.Tk):
             ],
         )
         self.button_ask.place(x=1070, y=620, width=36, height=36)
+        self.button_ask.config(state="disabled")
 
         self.button_select_domain = tk.Button(
             self,
@@ -59,6 +60,7 @@ class App(tk.Tk):
             ],
         )
         self.button_select_domain.place(x=1116, y=620, width=36, height=36)
+        self.button_select_domain.config(state="disabled")
 
         # Labels and images
         image = Image.open("assets/ragchat_logo.png")
@@ -93,22 +95,15 @@ class App(tk.Tk):
 
         # Chatboxes
         self.chatbox_response = Text(self, wrap=WORD)
-        self.chatbox_response.tag_configure("center", justify="center")
-        self.chatbox_response.config(
-            font=("Times New Roman", 14),
-            fg="black",
-            bg="white"
-        )
+        self.chatbox_response.tag_configure("bold", font=("Times New Roman", 14, "bold"))
+        self.chatbox_response.config(fg="black",bg="white")
         self.chatbox_response.place(x=128, y=160, width=1024, height=450)
+        self.chatbox_response.bindtags((str(self.chatbox_response), str(self), "all"))
 
         self.chatbox_ask = Text(self, wrap=WORD)
         self.chatbox_ask.tag_configure("center", justify="center")
         self.chatbox_ask.insert(1.0, "Send Message")
-        self.chatbox_ask.config(
-            font=("Arial", 12),
-            fg="black",
-            bg="white"
-        )
+        self.chatbox_ask.config(font=("Arial", 12),fg="black",bg="white")
         self.chatbox_ask.place(x=128, y=620, width=932, height=36)
 
         # Funtion to call when started
@@ -153,27 +148,28 @@ class App(tk.Tk):
             processor=self.processor
         )
 
-    def _take_input(self):
-        input = self.chatbox_ask.get("1.0", "end-1c")
-        return input
-
-    def _create_query_vector(self):
-        query = self._take_input()
-        return self.ef.create_vector_embedding_from_query(query=query)
-
     def generate_response(self):
-        query = self._take_input()
-        query_vector = self._create_query_vector()
+        query = self.chatbox_ask.get("1.0", "end-1c")
+        query_vector = self.ef.create_vector_embedding_from_query(query=query)
         _, I = globals.index.search(query_vector, 5)
 
         # Create context
         context = ""
-        for i, index in enumerate(I[0]):
-            answer = globals.sentences[index]
-            context += f"Context {i + 1}: {answer}\n"
+        window_size = 1
+        enriched_sentences = []
+        for index in I[0]:
+            start = max(0, index - window_size)
+            end = min(len(globals.sentences) - 1, index + window_size)
+            enriched_sentences.append([start, index, end])
+
+        for i, indexes in enumerate(enriched_sentences):
+            widen_sentence = ""
+            for sub_index in indexes:
+                widen_sentence += globals.sentences[sub_index] + " "
+            context += f"Context {i + 1}: {widen_sentence}\n"
         
         # Generate response
-        response = self.cf.response_generation(query=self._take_input(), context=context)
+        response = self.cf.response_generation(query=query, context=context)
 
         # Display response
         self.display_message(message=query, sender="user")
@@ -182,12 +178,14 @@ class App(tk.Tk):
     def display_message(self, message: str, sender: str):
         self.chatbox_response.update()
         if sender == "system":
-            message = f"RAG Chat --> {message}"
+            self.chatbox_response.insert(tk.END, "ragchat:\n", "bold")
+            self.chatbox_response.insert(tk.END, f"{message}\n")
         else:
-            message = f"You --> {message}"
+            self.chatbox_response.insert(tk.END, "you:\n", "bold")
+            self.chatbox_response.insert(tk.END, f"{message}\n")
 
-        self.chatbox_response.insert(tk.END, message + "\n")
         self.chatbox_response.update()
+        self.chatbox_response.see(tk.END)
     
     def on_start(self):
         self.display_message(
@@ -226,3 +224,5 @@ class App(tk.Tk):
                 message="Memory is sync. You can start the use ragchat! Please select your domain first!",
                 sender="system"
             )
+        self.button_ask.config(state="normal")
+        self.button_select_domain.config(state="normal")

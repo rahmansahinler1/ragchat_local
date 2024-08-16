@@ -1,28 +1,35 @@
 from tkinter import filedialog
 from tkinter import *
 from pathlib import Path
-from typing import List
 import globals
 import PyPDF2
+import spacy
 
 
 class ReadingFunctions:
+    def __init__(self):
+        self.nlp = spacy.load(
+            "en_core_web_sm",
+            disable=[ "tagger", "attribute_ruler", "lemmatizer", "ner","textcat","custom "]
+        )
+
     def read_pdf(self, pdf_path: str):
         # Open the PDF file
-        with open(pdf_path, "rb") as file:
-            reader = PyPDF2.PdfReader(file)
-            num_pages = len(reader.pages)
+        with open(pdf_path, 'rb') as file:
+            pdf_reader = PyPDF2.PdfReader(file)
+            page_texts = []
 
             # Extract text from each page
-            pdf_sentences = []
-            for page_num in range(num_pages):
-                text = reader.pages[page_num].extract_text()
-                text = text.replace("\n", "")
-                sentences = text.split(".")
-                for sentence in sentences:
-                    if len(sentence) > 15:
-                        pdf_sentences.append(sentence)
-            return pdf_sentences
+            for page in pdf_reader.pages:
+                page_texts.append(page.extract_text())
+
+        # Extract valid sentences
+        full_text = ' '.join(page_texts)
+        docs = self.nlp(full_text)
+        sentences = [sent.text.replace('\n', ' ').strip() for sent in docs.sents]
+        valid_sentences = [sentence for sentence in sentences if len(sentence) > 15]
+        
+        return valid_sentences
 
     def select_pdf_file(self):
         initial_dir = Path(__file__).resolve().parent.parent / "docs"
