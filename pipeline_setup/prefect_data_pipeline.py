@@ -152,7 +152,6 @@ class FileProcessor:
             change_dict: Dict = {},
     ):
         self.ef = EmbeddingFunctions()
-        self.cf = ChatbotFunctions()
         self.rf = ReadingFunctions()
         self.indf = IndexingFunctions()
         self.change_dict = change_dict

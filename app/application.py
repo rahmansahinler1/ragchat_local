@@ -4,11 +4,15 @@ from tkinter import font as tkfont
 from PIL import Image, ImageTk
 
 from pathlib import Path
+from tkinter import messagebox
 import json
 
-from app.settings_window import Window
+
 from functions.embedding_functions import EmbeddingFunctions
 from functions.chatbot_functions import ChatbotFunctions
+from app.settings_window import Window
+from app.data_pipeline import FileDetector
+from app.data_pipeline import FileProcessor
 import globals
 
 
@@ -23,8 +27,11 @@ class App(tk.Tk):
 
         # Initialize necessary folders
         self.config_file_path = Path(__file__).resolve().parent.parent / "utils" / "config.json"
-        self.db_folder_path = self.get_db_folder_path(self.config_file_path)
-        self.domain_folders = self.get_domain_folder_list(db_folder_path=self.db_folder_path)
+        self.db_folder_path = ""
+        self.domain_folders = []
+        self.memory_file_path = ""
+        self.detector = None
+        self.processor = None
 
         # Base window
         self.geometry("1280x720")
@@ -103,17 +110,36 @@ class App(tk.Tk):
             bg="white"
         )
         self.chatbox_ask.place(x=128, y=620, width=932, height=36)
-    
-    def get_db_folder_path(self,
-                           config_file_path: Path
-        ):
-        with open(config_file_path, 'r') as file:
-            config = json.load(file)
-        return config[0]["db_path"]
 
-    def get_domain_folder_list(self,
-                               db_folder_path: str
-        ):
+        # Funtion to call when started
+        self.after(100, self.on_start)
+    
+    def check_necessary_paths(self):
+        try:
+            with open(self.config_file_path, "r") as file:
+                config_data = json.load(file)
+        except FileNotFoundError:
+            messagebox.showerror("Error!", f"Memory file could not be found in {self.config_file_path}!")
+            self.destroy()
+
+        if config_data[0]["db_path"]:
+            self.db_folder_path = Path(config_data[0]["db_path"])
+            self.memory_file_path = self.db_folder_path / "memory.json"
+        else:
+            if config_data[0]["environment"] == "Windows":
+                db_path = f"C:/Users/{config_data[0]["user_name"]}/Documents/ragchat_local/db"
+                config_data[0]["db_path"] = db_path
+                self.db_folder_path = Path(db_path)
+                self.memory_file_path = self.db_folder_path / "memory.json"
+                with open(self.config_json_path, "w") as file:
+                    config_data = json.dump(config_data, file, indent=4)
+            elif config_data[0]["environment"] == "MacOS":
+                # :TODO: Add configuration for macos
+                raise EnvironmentError("MacOS is not yet configured for RAG Chat Local!")
+            else:
+                raise EnvironmentError("Only Windows and MacOS is configured for RAG Chat Local!")
+
+    def get_domain_folder_list(self,db_folder_path: str):
         domain_folder = Path(db_folder_path) / "domains"
         domains = [folder.name for folder in domain_folder.iterdir() if folder.is_dir()]
         return domains
@@ -121,7 +147,10 @@ class App(tk.Tk):
     def open_settings(self):
         settings_window = Window(
             domain_folders=self.domain_folders,
-            config_file_path=self.config_file_path
+            db_folder_path=self.db_folder_path,
+            memory_file_path=self.memory_file_path,
+            detector=self.detector,
+            processor=self.processor
         )
 
     def _take_input(self):
@@ -151,9 +180,49 @@ class App(tk.Tk):
         self.display_message(message=response, sender="system")
 
     def display_message(self, message: str, sender: str):
+        self.chatbox_response.update()
         if sender == "system":
             message = f"RAG Chat --> {message}"
         else:
             message = f"You --> {message}"
 
         self.chatbox_response.insert(tk.END, message + "\n")
+        self.chatbox_response.update()
+    
+    def on_start(self):
+        self.display_message(
+            message="Welcome the ragchat! Please wait ragchat to checking it's memory for any change...",
+            sender="system"
+        )
+        self.check_necessary_paths()
+        self.domain_folders = self.get_domain_folder_list(db_folder_path=self.db_folder_path)
+        self.detector = FileDetector(db_folder_path=self.db_folder_path, memory_file_path=self.memory_file_path)
+        self.processor = FileProcessor()
+        changes, updated_memory = self.detector.check_changes()
+        if changes:
+            self.display_message(
+                message=f"{len(changes)} file change detected. Please wait for ragchat to update it's memory...",
+                sender="system"
+            )
+            changed_file_message = "Changed files are:\n"
+            for i, change in enumerate(changes):
+                changed_file_message += f"{i + 1} --> {change["file_path"]}\n"
+            self.display_message(
+                message=changed_file_message,
+                sender="system"
+            )
+            self.processor.sync_db(
+                changes=changes,
+                db_folder_path=self.db_folder_path,
+                updated_memory=updated_memory,
+            )
+            self.display_message(
+                message="Memory updated! Now ragchat knows everything select your domain and start asking!",
+                sender="system"
+            )
+            self.processor.clean_processor()
+        else:
+            self.display_message(
+                message="Memory is sync. You can start the use ragchat! Please select your domain first!",
+                sender="system"
+            )

@@ -2,27 +2,29 @@ from tkinter import *
 import tkinter as tk
 from tkinter import messagebox
 from tkinter import font as tkfont
-from typing import List
 from PIL import Image, ImageTk
+from typing import List
 from pathlib import Path
-import json
-import globals
-from functions.indexing_functions import IndexingFunctions
 import faiss
+
+import globals
 
 
 class Window(tk.Toplevel):
     def __init__(
             self,
             domain_folders: List[str],
-            config_file_path: Path,
+            db_folder_path: Path,
+            memory_file_path: Path,
+            detector,
+            processor
         ):
         super().__init__()
-        self.main_folder_path = Path(__file__).resolve().parent.parent
         self.domain_folders = domain_folders
-        self.config_file_path = config_file_path
-        self.resources_folder_path = self.get_resources_folder_path()
-        self.indf = IndexingFunctions()
+        self.db_folder_path = db_folder_path
+        self.memory_file_path = memory_file_path
+        self.detector = detector
+        self.processor = processor
         self.protocol("WM_DELETE_WINDOW", self.on_close)
 
         # Base window
@@ -47,7 +49,7 @@ class Window(tk.Toplevel):
             self,
             text="Run",
             command=lambda: [
-                None,
+                self.check_changes(),
             ],
         )
         self.button_run_file_change.place(x=380, y=357, width=70, height=20)
@@ -124,12 +126,12 @@ class Window(tk.Toplevel):
         self.chatbox_log = Text(self, wrap=WORD)
         self.chatbox_log.tag_configure("center", justify="center")
         self.chatbox_log.config(
-            font=("Times New Roman", 14),
+            font=("Times New Roman", 11),
             fg="black",
             bg="white"
         )
         self.chatbox_log.place(x=30, y=407, width=580, height=283)
-        self.chatbox_log.insert(tk.END, f"Resources folder path: {self.resources_folder_path}" + "\n")
+        self.chatbox_log.insert(tk.END, f"Resources folder path: {self.db_folder_path}" + "\n")
     
     def get_selected_domain(self, event=None):
         selected_indices = self.listbox_domains.curselection()
@@ -137,18 +139,37 @@ class Window(tk.Toplevel):
             selected_item = self.listbox_domains.get(selected_indices[0])
             globals.selected_domain = selected_item.replace('--> ', '')
             print(f"Selected domain: {globals.selected_domain}")
+    
+    def display_message(self, message: str):
+        self.chatbox_log.update()
+        self.chatbox_log.insert(tk.END, "- " + message + "\n")
+        self.chatbox_log.update()
+    
+    def check_changes(self):
+        self.display_message(message="Checking the memory...",)
+        changes, updated_memory = self.detector.check_changes()
+        if changes:
+            self.display_message(message=f"{len(changes)} file change detected. Please wait for ragchat to update it's memory...")
+            changed_file_message = "Changed files are:\n"
+            for i, change in enumerate(changes):
+                changed_file_message += f"{i + 1} --> {change["file_path"]}\n"
+            self.display_message(message=changed_file_message)
+            self.processor.sync_db(
+                changes=changes,
+                db_folder_path=self.db_folder_path,
+                updated_memory=updated_memory,
+            )
+            self.display_message(message="Memory updated! Now ragchat knows everything select your domain and start asking!")
+            self.processor.clean_processor()
+        else:
+            self.display_message(message="Memory is sync. You can start the use ragchat! Please select your domain first!")
 
     def on_close(self):
-        index_path = self.main_folder_path / "db"  / "indexes" / (globals.selected_domain + ".pickle")
+        index_path = self.db_folder_path  / "indexes" / (globals.selected_domain + ".pickle")
         try:
-            index_object = self.indf.load_index(index_path=index_path)
+            index_object = self.processor.indf.load_index(index_path=index_path)
             globals.index = faiss.deserialize_index(index_object["index"])
             globals.sentences = index_object["sentences"]
         except FileNotFoundError:
             messagebox.showerror("Error!", "Index could not be found with your domain!")
         self.destroy()
-
-    def get_resources_folder_path(self):
-        with open(self.config_file_path, 'r') as file:
-            config = json.load(file)
-        return config[0]["db_path"]
