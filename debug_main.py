@@ -1,7 +1,7 @@
 from app.application import App
-from pipeline_setup.data_pipeline import FileDetectionFlow
-from pipeline_setup.data_pipeline import FileDetector
-from pipeline_setup.data_pipeline import FileProcessor
+from pipeline_setup.prefect_data_pipeline import FileDetectionFlow
+from pipeline_setup.prefect_data_pipeline import FileDetector
+from pipeline_setup.prefect_data_pipeline import FileProcessor
 import re
 import numpy as np
 import faiss

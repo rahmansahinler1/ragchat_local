@@ -1,74 +1,47 @@
 import tkinter as tk
 from tkinter import *
+from tkinter import font as tkfont
+from PIL import Image, ImageTk
 
-from functions.reading_functions import ReadingFunctions
+from pathlib import Path
+from tkinter import messagebox
+import json
+
+
 from functions.embedding_functions import EmbeddingFunctions
-from functions.indexing_functions import IndexingFunctions
 from functions.chatbot_functions import ChatbotFunctions
-
+from app.settings_window import Window
+from app.data_pipeline import FileDetector
+from app.data_pipeline import FileProcessor
 import globals
 
 
 class App(tk.Tk):
-    def __init__(self):
+    def __init__(
+            self,
+        ):
         super().__init__()
-        
+        # Initialize funtion calls
         self.ef = EmbeddingFunctions()
         self.cf = ChatbotFunctions()
-        self.rf = ReadingFunctions()
-        self.indf = IndexingFunctions()
+
+        # Initialize necessary folders
+        self.config_file_path = Path(__file__).resolve().parent.parent / "utils" / "config.json"
+        self.db_folder_path = ""
+        self.domain_folders = []
+        self.memory_file_path = ""
+        self.detector = None
+        self.processor = None
 
         # Base window
-        self.geometry("960x720")
-        self.title("RAG Chat")
+        self.geometry("1280x720")
+        self.title("App")
         self.resizable(False, False)
-        self.configure(bg="gray26")
+        self.configure(bg="#222222")
+        self.title("ragchat - v0.1")
+        self.wm_iconbitmap("assets/ragchat_icon.ico")
 
-        # Button: Select PDF File
-        self.button_select_pdf = tk.Button(
-            self,
-            text="Select PDF",
-            command=lambda: [
-                self.rf.select_pdf_file(),
-                self.rf.read_pdf(pdf_path=globals.pdf_path),
-                self.display_message(
-                    message="Selected PDF: " + globals.pdf_path.split("/")[-1],
-                    sender="system",
-                ),
-            ],
-        )
-        self.button_select_pdf.place(x=5, y=47, width=175, height=30)
-
-        # Button: Create Index
-        self.button_create_index = tk.Button(
-            self,
-            text="Create Index",
-            command=lambda: [
-                self.ef.create_vector_embeddings_from_pdf(),
-                self.indf.create_index(),
-                self.display_message(
-                    message="Index Created ",
-                    sender="system",
-                ),
-            ],
-        )
-        self.button_create_index.place(x=5, y=87, width=175, height=30)
-
-        # Button: Load Index
-        self.button_load_index = tk.Button(
-            self,
-            text="Load Index",
-            command=lambda: [
-                self.indf.load_index(),
-                self.display_message(
-                    message="Index Loaded ",
-                    sender="system",
-                ),
-            ],
-        )
-        self.button_load_index.place(x=5, y=127, width=175, height=30)
-
-        # Button: Search
+        # Buttons
         self.button_ask = tk.Button(
             self,
             text=">",
@@ -76,47 +49,109 @@ class App(tk.Tk):
                 self.generate_response(),
             ],
         )
-        self.button_ask.place(x=923, y=683, width=37, height=37)
+        self.button_ask.place(x=1070, y=620, width=36, height=36)
 
-        # Labels
-        self.label_manage = Label(self, text="Manage")
-        self.label_manage.config(
-            font=("Helvetica", 16),
-            background="gray14",
-            foreground="white",
-            anchor="center",
+        self.button_select_domain = tk.Button(
+            self,
+            text="S",
+            command=lambda: [
+                self.open_settings(),
+            ],
         )
-        self.label_manage.place(x=0, y=0, width=187, height=39)
+        self.button_select_domain.place(x=1116, y=620, width=36, height=36)
 
-        self.label_chat = Label(self, text="Chat")
-        self.label_chat.config(
-            font=("Helvetica", 16),
-            background="gray14",
+        # Labels and images
+        image = Image.open("assets/ragchat_logo.png")
+        logo_pic = ImageTk.PhotoImage(image)
+        label = Label(self, image=logo_pic)
+        label.image = logo_pic
+        label.place(x=128, y=35, width=115, height=118)
+
+        self.label_ragchat = Label(self, text="ragchat")
+        roboto_font = tkfont.Font(
+            family="Roboto",
+            size=30,
+            weight="bold",
+            slant="roman"
+            )
+        self.label_ragchat.config(
+            font=roboto_font,
+            background="#222222",
             foreground="white",
-            anchor="center",
+            anchor="w",
         )
-        self.label_chat.place(x=187, y=0, width=773, height=39)
+        self.label_ragchat.place(x=248, y=74, width=300, height=45)
 
-        # Response Chatbox
+        self.label_slogan = Label(self, text="What do you want to know?")
+        self.label_slogan.config(
+            font=("Helvetica", 16, "bold"),
+            background="#222222",
+            foreground="white",
+            anchor="w",
+        )
+        self.label_slogan.place(x=248, y=124, width=300, height=20)
+
+        # Chatboxes
         self.chatbox_response = Text(self, wrap=WORD)
         self.chatbox_response.tag_configure("center", justify="center")
         self.chatbox_response.config(
             font=("Times New Roman", 14),
             fg="black",
-            bg="gray85"
+            bg="white"
         )
-        self.chatbox_response.place(x=187, y=39, width=773, height=642)
+        self.chatbox_response.place(x=128, y=160, width=1024, height=450)
 
-        # Message Send Chatbox
         self.chatbox_ask = Text(self, wrap=WORD)
         self.chatbox_ask.tag_configure("center", justify="center")
         self.chatbox_ask.insert(1.0, "Send Message")
         self.chatbox_ask.config(
             font=("Arial", 12),
             fg="black",
-            bg="gray85"
+            bg="white"
         )
-        self.chatbox_ask.place(x=187, y=683, width=734, height=37)
+        self.chatbox_ask.place(x=128, y=620, width=932, height=36)
+
+        # Funtion to call when started
+        self.after(100, self.on_start)
+    
+    def check_necessary_paths(self):
+        try:
+            with open(self.config_file_path, "r") as file:
+                config_data = json.load(file)
+        except FileNotFoundError:
+            messagebox.showerror("Error!", f"Memory file could not be found in {self.config_file_path}!")
+            self.destroy()
+
+        if config_data[0]["db_path"]:
+            self.db_folder_path = Path(config_data[0]["db_path"])
+            self.memory_file_path = self.db_folder_path / "memory.json"
+        else:
+            if config_data[0]["environment"] == "Windows":
+                db_path = f"C:/Users/{config_data[0]["user_name"]}/Documents/ragchat_local/db"
+                config_data[0]["db_path"] = db_path
+                self.db_folder_path = Path(db_path)
+                self.memory_file_path = self.db_folder_path / "memory.json"
+                with open(self.config_json_path, "w") as file:
+                    config_data = json.dump(config_data, file, indent=4)
+            elif config_data[0]["environment"] == "MacOS":
+                # :TODO: Add configuration for macos
+                raise EnvironmentError("MacOS is not yet configured for RAG Chat Local!")
+            else:
+                raise EnvironmentError("Only Windows and MacOS is configured for RAG Chat Local!")
+
+    def get_domain_folder_list(self,db_folder_path: str):
+        domain_folder = Path(db_folder_path) / "domains"
+        domains = [folder.name for folder in domain_folder.iterdir() if folder.is_dir()]
+        return domains
+    
+    def open_settings(self):
+        settings_window = Window(
+            domain_folders=self.domain_folders,
+            db_folder_path=self.db_folder_path,
+            memory_file_path=self.memory_file_path,
+            detector=self.detector,
+            processor=self.processor
+        )
 
     def _take_input(self):
         input = self.chatbox_ask.get("1.0", "end-1c")
@@ -134,7 +169,7 @@ class App(tk.Tk):
         # Create context
         context = ""
         for i, index in enumerate(I[0]):
-            answer = globals.pdf_sentences[index]
+            answer = globals.sentences[index]
             context += f"Context {i + 1}: {answer}\n"
         
         # Generate response
@@ -145,9 +180,49 @@ class App(tk.Tk):
         self.display_message(message=response, sender="system")
 
     def display_message(self, message: str, sender: str):
+        self.chatbox_response.update()
         if sender == "system":
             message = f"RAG Chat --> {message}"
         else:
             message = f"You --> {message}"
 
         self.chatbox_response.insert(tk.END, message + "\n")
+        self.chatbox_response.update()
+    
+    def on_start(self):
+        self.display_message(
+            message="Welcome the ragchat! Please wait ragchat to checking it's memory for any change...",
+            sender="system"
+        )
+        self.check_necessary_paths()
+        self.domain_folders = self.get_domain_folder_list(db_folder_path=self.db_folder_path)
+        self.detector = FileDetector(db_folder_path=self.db_folder_path, memory_file_path=self.memory_file_path)
+        self.processor = FileProcessor()
+        changes, updated_memory = self.detector.check_changes()
+        if changes:
+            self.display_message(
+                message=f"{len(changes)} file change detected. Please wait for ragchat to update it's memory...",
+                sender="system"
+            )
+            changed_file_message = "Changed files are:\n"
+            for i, change in enumerate(changes):
+                changed_file_message += f"{i + 1} --> {change["file_path"]}\n"
+            self.display_message(
+                message=changed_file_message,
+                sender="system"
+            )
+            self.processor.sync_db(
+                changes=changes,
+                db_folder_path=self.db_folder_path,
+                updated_memory=updated_memory,
+            )
+            self.display_message(
+                message="Memory updated! Now ragchat knows everything select your domain and start asking!",
+                sender="system"
+            )
+            self.processor.clean_processor()
+        else:
+            self.display_message(
+                message="Memory is sync. You can start the use ragchat! Please select your domain first!",
+                sender="system"
+            )
