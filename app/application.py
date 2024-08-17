@@ -7,6 +7,7 @@ from functions.chatbot_functions import ChatbotFunctions
 from functions.documentation_functions import DocumentationFunctions
 import globals
 from datetime import datetime
+import string
 
 ef = EmbeddingFunctions()
 cf = ChatbotFunctions()
@@ -127,6 +128,8 @@ class App(tk.Tk):
 
     def _create_query_vector(self):
         query = self._take_input()
+        translator = str.maketrans('','',string.punctuation)
+        query = query.translate(translator).strip().lower()
         return ef.create_vector_embedding_from_query(query=query)
 
     def generate_response(self):
