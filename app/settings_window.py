@@ -35,31 +35,35 @@ class Window(tk.Toplevel):
         self.title("settings")
         self.wm_iconbitmap("assets/ragchat_icon.ico")
 
-        # Buttons
-        self.button_change_resource = tk.Button(
-            self,
-            text="Reset",
-            command=lambda: [
-                None,
-            ],
-        )
-        self.button_change_resource.place(x=380, y=317, width=70, height=20)
-
+        # Button run file change detection
+        self.run_file_change_image = Image.open("assets/run_file_detection.png")
+        self.run_file_change_image = self.run_file_change_image.resize((38, 25), Image.LANCZOS)
+        self.run_file_change_pic = ImageTk.PhotoImage(self.run_file_change_image)
         self.button_run_file_change = tk.Button(
             self,
-            text="Run",
+            image=self.run_file_change_pic,
             command=lambda: [
                 self.check_changes(),
             ],
+            bd=0,
+            bg="#222222",
+            highlightthickness=0,
+            activebackground="#222222"
         )
-        self.button_run_file_change.place(x=380, y=357, width=70, height=20)
+        self.button_run_file_change.place(x=230, y=300, width=38, height=25)
 
         # Labels and images
-        image = Image.open("assets/resources.png")
-        resources_pic = ImageTk.PhotoImage(image)
-        label = Label(self, image=resources_pic)
-        label.image = resources_pic
-        label.place(x=25, y=25, width=75, height=77)
+        self.image_settings = Image.open("assets/settings.png")
+        self.settings_pic = ImageTk.PhotoImage(self.image_settings)
+        self.label_settings_pic = Label(self, image=self.settings_pic)
+        self.label_settings_pic.image = self.settings_pic
+        self.label_settings_pic.place(x=25, y=27, width=75, height=75)
+
+        self.image_logs = Image.open("assets/logs.png")
+        self.logs_pic = ImageTk.PhotoImage(self.image_logs)
+        self.label_logs_pic = Label(self, image=self.logs_pic)
+        self.label_logs_pic.image = self.logs_pic
+        self.label_logs_pic.place(x=25, y=332, width=75, height=77)
 
         self.label_settings = Label(self, text="settings")
         roboto_font = tkfont.Font(
@@ -74,7 +78,22 @@ class Window(tk.Toplevel):
             foreground="white",
             anchor="w",
         )
-        self.label_settings.place(x=107, y=40, width=175, height=45)
+        self.label_settings.place(x=105, y=43, width=175, height=45)
+
+        self.label_logs = Label(self, text="logs")
+        roboto_font = tkfont.Font(
+            family="Roboto",
+            size=30,
+            weight="bold",
+            slant="roman"
+            )
+        self.label_logs.config(
+            font=roboto_font,
+            background="#222222",
+            foreground="white",
+            anchor="w",
+        )
+        self.label_logs.place(x=105, y=340, width=175, height=45)
 
         self.label_select_folder = Label(self, text="Select Resource Folder")
         self.label_select_folder.config(
@@ -85,23 +104,15 @@ class Window(tk.Toplevel):
         )
         self.label_select_folder.place(x=30, y=107, width=300, height=20)
 
-        self.label_reset_resource_folder = Label(self, text="Reset your resources folder -->")
-        self.label_reset_resource_folder.config(
-            font=("Helvetica", 16, "bold"),
-            background="#222222",
-            foreground="white",
-            anchor="w",
-        )
-        self.label_reset_resource_folder.place(x=40, y=317, width=320, height=20)
 
-        self.label_run_file_detection = Label(self, text="Run file detection                  -->")
+        self.label_run_file_detection = Label(self, text="Run file detection")
         self.label_run_file_detection.config(
             font=("Helvetica", 16, "bold"),
             background="#222222",
             foreground="white",
             anchor="w",
         )
-        self.label_run_file_detection.place(x=40, y=357, width=320, height=20)
+        self.label_run_file_detection.place(x=38, y=302, width=180, height=20)
 
         # Listbox
         self.listbox_domains = Listbox(self)
@@ -165,11 +176,14 @@ class Window(tk.Toplevel):
             self.display_message(message="Memory is sync. You can start the use ragchat! Please select your domain first!")
 
     def on_close(self):
-        index_path = self.db_folder_path  / "indexes" / (globals.selected_domain + ".pickle")
-        try:
-            index_object = self.processor.indf.load_index(index_path=index_path)
-            globals.index = faiss.deserialize_index(index_object["index"])
-            globals.sentences = index_object["sentences"]
-        except FileNotFoundError:
-            messagebox.showerror("Error!", "Index could not be found with your domain!")
+        if self.db_folder_path:
+            index_path = self.db_folder_path  / "indexes" / (globals.selected_domain + ".pickle")
+            try:
+                index_object = self.processor.indf.load_index(index_path=index_path)
+                globals.index = faiss.deserialize_index(index_object["index"])
+                globals.sentences = index_object["sentences"]
+            except FileNotFoundError:
+                messagebox.showerror("Error!", "Index could not be found within your resource folder!")
+        else:
+            messagebox.showinfo("Information", "You did not select any resource folder!")
         self.destroy()

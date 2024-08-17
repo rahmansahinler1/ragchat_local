@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import *
+from tkinter import scrolledtext
 from tkinter import font as tkfont
 from PIL import Image, ImageTk
 
@@ -41,24 +42,37 @@ class App(tk.Tk):
         self.title("ragchat - v0.1")
         self.wm_iconbitmap("assets/ragchat_icon.ico")
 
-        # Buttons
+        # Button Ask
+        self.button_ask_image = Image.open("assets/send.png")
+        self.button_ask_image = self.button_ask_image.resize((36, 36), Image.LANCZOS)
+        self.button_ask_pic = ImageTk.PhotoImage(self.button_ask_image)
         self.button_ask = tk.Button(
             self,
-            text=">",
-            command=lambda: [
-                self.generate_response(),
-            ],
+            image=self.button_ask_pic,
+            command=lambda: [self.generate_response()],
+            bd=0,
+            bg="#222222",
+            highlightthickness=0,
+            activebackground="#222222"
         )
-        self.button_ask.place(x=1070, y=620, width=36, height=36)
-
-        self.button_select_domain = tk.Button(
+        self.button_ask.place(x=1116, y=620, width=36, height=36)
+        self.button_ask.config(state="disabled")
+        
+        # Button settings
+        self.button_resources_image = Image.open("assets/change_resource.png")
+        self.button_resources_image = self.button_resources_image.resize((108, 108), Image.LANCZOS)
+        self.resources_pic = ImageTk.PhotoImage(self.button_resources_image)
+        self.button_resources = tk.Button(
             self,
-            text="S",
-            command=lambda: [
-                self.open_settings(),
-            ],
+            image=self.resources_pic,
+            command=lambda: [self.open_settings()],
+            bd=0,
+            bg="#222222",
+            highlightthickness=0,
+            activebackground="#222222"
         )
-        self.button_select_domain.place(x=1116, y=620, width=36, height=36)
+        self.button_resources.place(x=1062, y=50, width=108, height=108)
+        self.button_resources.config(state="disabled")
 
         # Labels and images
         image = Image.open("assets/ragchat_logo.png")
@@ -84,7 +98,7 @@ class App(tk.Tk):
 
         self.label_slogan = Label(self, text="What do you want to know?")
         self.label_slogan.config(
-            font=("Helvetica", 16, "bold"),
+            font=("Roboto", 16, "bold"),
             background="#222222",
             foreground="white",
             anchor="w",
@@ -92,24 +106,20 @@ class App(tk.Tk):
         self.label_slogan.place(x=248, y=124, width=300, height=20)
 
         # Chatboxes
-        self.chatbox_response = Text(self, wrap=WORD)
-        self.chatbox_response.tag_configure("center", justify="center")
-        self.chatbox_response.config(
-            font=("Times New Roman", 14),
-            fg="black",
-            bg="white"
-        )
+        self.chatbox_response = scrolledtext.ScrolledText(self, wrap=WORD)
+        self.chatbox_response.tag_configure("bold", font=("Arial", 16, "bold"))
+        self.chatbox_response.config(fg="black",bg="white", font=("Arial", 12))
+        self.chatbox_response.bindtags((str(self.chatbox_response), str(self), "all"))
         self.chatbox_response.place(x=128, y=160, width=1024, height=450)
+        self.bind_all("<MouseWheel>", self.handle_mousewheel)
 
         self.chatbox_ask = Text(self, wrap=WORD)
         self.chatbox_ask.tag_configure("center", justify="center")
+        self.chatbox_ask.config(font=("Arial", 12),fg="black",bg="white")
+        self.chatbox_ask.place(x=128, y=620, width=983, height=36)
+        self.chatbox_ask.bind("<Return>", self.handle_enter)
         self.chatbox_ask.insert(1.0, "Send Message")
-        self.chatbox_ask.config(
-            font=("Arial", 12),
-            fg="black",
-            bg="white"
-        )
-        self.chatbox_ask.place(x=128, y=620, width=932, height=36)
+        self.chatbox_ask.bind("<Shift-Return>", self.handle_shift_enter)
 
         # Funtion to call when started
         self.after(100, self.on_start)
@@ -153,41 +163,65 @@ class App(tk.Tk):
             processor=self.processor
         )
 
-    def _take_input(self):
-        input = self.chatbox_ask.get("1.0", "end-1c")
-        return input
-
-    def _create_query_vector(self):
-        query = self._take_input()
-        return self.ef.create_vector_embedding_from_query(query=query)
-
     def generate_response(self):
-        query = self._take_input()
-        query_vector = self._create_query_vector()
-        _, I = globals.index.search(query_vector, 5)
+        if globals.index:
+            query = self.chatbox_ask.get("1.0", "end-1c")
+            self.display_message(message=query, sender="user")
+            self.clear_input()
+            query_vector = self.ef.create_vector_embedding_from_query(query=query)
+            _, I = globals.index.search(query_vector, 5)
 
-        # Create context
-        context = ""
-        for i, index in enumerate(I[0]):
-            answer = globals.sentences[index]
-            context += f"Context {i + 1}: {answer}\n"
-        
-        # Generate response
-        response = self.cf.response_generation(query=self._take_input(), context=context)
+            # Create context
+            context = ""
+            window_size = 1
+            enriched_sentences = []
+            for index in I[0]:
+                start = max(0, index - window_size)
+                end = min(len(globals.sentences) - 1, index + window_size)
+                enriched_sentences.append([start, index, end])
 
-        # Display response
-        self.display_message(message=query, sender="user")
-        self.display_message(message=response, sender="system")
+            for i, indexes in enumerate(enriched_sentences):
+                widen_sentence = ""
+                for sub_index in indexes:
+                    widen_sentence += globals.sentences[sub_index] + " "
+                context += f"Context {i + 1}: {widen_sentence}\n"
+            
+            # Generate response
+            response = self.cf.response_generation(query=query, context=context)
+
+            # Display response
+            self.display_message(message=response, sender="system")
+        else:
+            messagebox.showerror("Error!", "Please first select your resource folder in the button on the top right!")
 
     def display_message(self, message: str, sender: str):
-        self.chatbox_response.update()
         if sender == "system":
-            message = f"RAG Chat --> {message}"
+            self.chatbox_response.insert(tk.END, "ragchat\n", "bold")
+            self.chatbox_response.insert(tk.END, f"{message}\n\n")
         else:
-            message = f"You --> {message}"
+            self.chatbox_response.insert(tk.END, "you\n", "bold")
+            self.chatbox_response.insert(tk.END, f"{message}\n\n")
 
-        self.chatbox_response.insert(tk.END, message + "\n")
         self.chatbox_response.update()
+        self.chatbox_response.see(tk.END)
+    
+    def clear_input(self):
+        self.chatbox_ask.delete("1.0", tk.END)
+        self.chatbox_response.update()
+    
+    def handle_enter(self, event):
+        if globals.index:
+            self.generate_response()  
+            return "break"
+        messagebox.showerror("Error!", "Please first select your resource folder in the button on the top right!")
+        return "break"
+
+
+    def handle_shift_enter(self, event):
+        return
+    
+    def handle_mousewheel(self, event):
+        self.chatbox_response.yview_scroll(int(-1*(event.delta/120)), "units")
     
     def on_start(self):
         self.display_message(
@@ -226,3 +260,5 @@ class App(tk.Tk):
                 message="Memory is sync. You can start the use ragchat! Please select your domain first!",
                 sender="system"
             )
+        self.button_ask.config(state="normal")
+        self.button_resources.config(state="normal")
