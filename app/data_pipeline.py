@@ -75,7 +75,8 @@ class FileProcessor:
         # Read changed pdf files
         for change in changes:
             # Create embeddings
-            sentences = self.rf.read_pdf(pdf_path=change["file_path"])
+            pdf_data = self.rf.read_pdf(pdf_path=change["file_path"])
+            sentences = pdf_data["sentences"]
             embeddings = self.ef.create_vector_embeddings_from_sentences(sentences=sentences)
 
             # Detect changed domain
@@ -84,10 +85,16 @@ class FileProcessor:
             if match:
                 domain = match[0]
                 if domain in self.change_dict.keys():
-                    self.change_dict[domain]["sentences"].extend(sentences)
-                    self.change_dict[domain]["embeddings"] = np.vstack((self.change_dict[domain]["embeddings"], embeddings))
+                    self.change_dict[domain]["pdf_path"].append(change["file_path"])
+                    self.change_dict[domain]["sentences"].append(sentences)
+                    self.change_dict[domain]["embeddings"].append(embeddings)
                 else:
-                    self.change_dict[domain] = {"sentences": sentences, "embeddings": embeddings}
+                    self.change_dict[domain] = {
+                        "pdf_path": [change["file_path"]],
+                        "sentences": [sentences],
+                        "embeddings": [embeddings],
+                        "pdf_sentence_amount": [pdf_data["page_sentence_amount"]]
+                    }
         
         # Update corresponding index
         for key, value in self.change_dict.items():
@@ -95,19 +102,24 @@ class FileProcessor:
             index_path = db_folder_path / "indexes" / (key + ".pickle")
             try:
                 index_object = self.indf.load_index(index_path)
-                index =  faiss.deserialize_index(index_object["index"])
-                sentences = index_object["sentences"]
-
-                # Append necessary parts to the index
-                index.add(value["embeddings"])
-                sentences.extend(value["sentences"])
-
-                # Overwrite the index
+                index =  faiss.deserialize_index(index_object["index_bytes"])
+                index_object["pdf_path"].extend(path for path in value["pdf_path"])
+                index_object["sentences"].extend(sentence for sentence in value["sentences"])
+                index_object["pdf_sentence_amount"].extend(sentence_amount for sentence_amount in value["pdf_sentence_amount"])
+                for embedding in value["embeddings"]:
+                    index.add(embedding)
                 index_bytes = faiss.serialize_index(index=index)
-                self.indf.save_index(index_bytes=index_bytes, sentences=sentences, save_path=index_path)
+                index_object["index_bytes"] = index_bytes
+                
+                self.indf.save_index(
+                    index_object=index_object,
+                    save_path=index_path
+                )
             except FileNotFoundError:
+                #:TODO Sifirdan create etmek sikinti. Birden fazla yeni eklenmis olabilir. Bunlari hizli ve sirali bir sekilde index'e eklemek gerekiyor.
                 # Create the index
-                index_bytes = self.indf.create_index_bytes(embeddings=embeddings)
+                for embedding in value["embeddings"]:
+                    index_bytes = self.indf.create_index_bytes(embeddings=embeddings)
                 self.indf.save_index(index_bytes=index_bytes, sentences=sentences, save_path=index_path)         
 
         # Update memory
