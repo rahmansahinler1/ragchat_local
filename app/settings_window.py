@@ -165,7 +165,7 @@ class Window(tk.Toplevel):
             for i, change in enumerate(changes):
                 changed_file_message += f"{i + 1} --> {change["file_path"]}\n"
             self.display_message(message=changed_file_message)
-            self.processor.sync_db(
+            self.processor.insert_to_db(
                 changes=changes,
                 db_folder_path=self.db_folder_path,
                 updated_memory=updated_memory,

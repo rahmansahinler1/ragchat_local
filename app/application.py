@@ -245,7 +245,7 @@ class App(tk.Tk):
                 message=changed_file_message,
                 sender="system"
             )
-            self.processor.sync_db(
+            self.processor.insert_to_db(
                 changes=changes,
                 db_folder_path=self.db_folder_path,
                 updated_memory=updated_memory,

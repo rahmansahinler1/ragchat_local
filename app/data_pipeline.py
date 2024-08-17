@@ -22,7 +22,11 @@ class FileDetector:
         self.memory_file_path = memory_file_path
     
     def check_changes(self):
-        changes = []
+        changes = {
+            "insert": {},
+            "delete": {},
+            "update": {}
+        }
         # Load memory db information
         with open(self.memory_file_path, "r") as file:
             memory_data = json.load(file)
@@ -44,7 +48,9 @@ class FileDetector:
             current_file_data.append(file_data)
 
         # Check differences
-        for _, data in enumerate(current_file_data):
+        #:TODO update this loop. Bu loop change tipini detect etmeli ve changes dict'ini dogru bir sekilde update etmeli.
+        #:TODO burdaki update tipine gore gerekli fonksiyonlar yazilip cagirilmali.
+        for data in current_file_data:
             if data in memory_data:
                 continue
             memory_data.append(data)
@@ -66,7 +72,7 @@ class FileProcessor:
         with open(memory_json_path, "w") as file:
             memory_data = json.dump(memory_data, file, indent=4)
     
-    def sync_db(
+    def insert_to_db(
         self,
         changes: List[Dict[str, str]],
         db_folder_path: Path,
@@ -76,8 +82,7 @@ class FileProcessor:
         for change in changes:
             # Create embeddings
             pdf_data = self.rf.read_pdf(pdf_path=change["file_path"])
-            sentences = pdf_data["sentences"]
-            embeddings = self.ef.create_vector_embeddings_from_sentences(sentences=sentences)
+            pdf_embeddings = self.ef.create_vector_embeddings_from_sentences(sentences=pdf_data["sentences"])
 
             # Detect changed domain
             pattern = r'domain\d+'
@@ -86,14 +91,15 @@ class FileProcessor:
                 domain = match[0]
                 if domain in self.change_dict.keys():
                     self.change_dict[domain]["pdf_path"].append(change["file_path"])
-                    self.change_dict[domain]["sentences"].append(sentences)
-                    self.change_dict[domain]["embeddings"].append(embeddings)
+                    self.change_dict[domain]["sentences"].extend(pdf_data["sentences"])
+                    self.change_dict[domain]["embeddings"].append(pdf_embeddings)
+                    self.change_dict[domain]["embeddings"] = np.vstack((self.change_dict[domain]["embeddings"], pdf_embeddings))
                 else:
                     self.change_dict[domain] = {
                         "pdf_path": [change["file_path"]],
-                        "sentences": [sentences],
-                        "embeddings": [embeddings],
-                        "pdf_sentence_amount": [pdf_data["page_sentence_amount"]]
+                        "page_sentence_amounts": [pdf_data["page_sentence_amount"]],
+                        "sentences": pdf_data["sentences"],
+                        "embeddings": pdf_embeddings
                     }
         
         # Update corresponding index
@@ -104,10 +110,9 @@ class FileProcessor:
                 index_object = self.indf.load_index(index_path)
                 index =  faiss.deserialize_index(index_object["index_bytes"])
                 index_object["pdf_path"].extend(path for path in value["pdf_path"])
-                index_object["sentences"].extend(sentence for sentence in value["sentences"])
                 index_object["pdf_sentence_amount"].extend(sentence_amount for sentence_amount in value["pdf_sentence_amount"])
-                for embedding in value["embeddings"]:
-                    index.add(embedding)
+                index_object["sentences"].extend(sentence for sentence in value["sentences"])
+                index.add(value["embeddings"])
                 index_bytes = faiss.serialize_index(index=index)
                 index_object["index_bytes"] = index_bytes
                 
@@ -116,11 +121,9 @@ class FileProcessor:
                     save_path=index_path
                 )
             except FileNotFoundError:
-                #:TODO Sifirdan create etmek sikinti. Birden fazla yeni eklenmis olabilir. Bunlari hizli ve sirali bir sekilde index'e eklemek gerekiyor.
-                # Create the index
-                for embedding in value["embeddings"]:
-                    index_bytes = self.indf.create_index_bytes(embeddings=embeddings)
-                self.indf.save_index(index_bytes=index_bytes, sentences=sentences, save_path=index_path)         
+                index_bytes = self.indf.create_index_bytes(embeddings=value["embeddings"])
+                index_object = {**value, "index_bytes": index_bytes}
+                self.indf.save_index(index_object=index_object, save_path=index_path)         
 
         # Update memory
         memory_json_path = db_folder_path / "memory.json"
