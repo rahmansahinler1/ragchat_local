@@ -8,9 +8,6 @@ from pathlib import Path
 from tkinter import messagebox
 import json
 
-
-from functions.embedding_functions import EmbeddingFunctions
-from functions.chatbot_functions import ChatbotFunctions
 from app.settings_window import Window
 from app.data_pipeline import FileDetector
 from app.data_pipeline import FileProcessor
@@ -22,10 +19,6 @@ class App(tk.Tk):
             self,
         ):
         super().__init__()
-        # Initialize funtion calls
-        self.ef = EmbeddingFunctions()
-        self.cf = ChatbotFunctions()
-
         # Initialize necessary folders
         self.config_file_path = Path(__file__).resolve().parent.parent / "utils" / "config.json"
         self.db_folder_path = ""
@@ -165,32 +158,12 @@ class App(tk.Tk):
 
     def generate_response(self):
         if globals.index:
-            query = self.chatbox_ask.get("1.0", "end-1c")
-            self.display_message(message=query, sender="user")
+            user_query = self.chatbox_ask.get("1.0", "end-1c")
+            self.display_message(message=user_query, sender="user")
             self.clear_input()
-            query_vector = self.ef.create_vector_embedding_from_query(query=query)
-            _, I = globals.index.search(query_vector, 5)
-
-            # Create context
-            context = ""
-            window_size = 1
-            enriched_sentences = []
-            for index in I[0]:
-                start = max(0, index - window_size)
-                end = min(len(globals.sentences) - 1, index + window_size)
-                enriched_sentences.append([start, index, end])
-
-            for i, indexes in enumerate(enriched_sentences):
-                widen_sentence = ""
-                for sub_index in indexes:
-                    widen_sentence += globals.sentences[sub_index] + " "
-                context += f"Context {i + 1}: {widen_sentence}\n"
-            
-            # Generate response
-            response = self.cf.response_generation(query=query, context=context)
-
-            # Display response
-            self.display_message(message=response, sender="system")
+            response, resource_text = self.processor.search_index(user_query=user_query)
+            answer = f"{response}\n{resource_text}"
+            self.display_message(message=answer, sender="system")
         else:
             messagebox.showerror("Error!", "Please first select your resource folder in the button on the top right!")
 
@@ -233,28 +206,35 @@ class App(tk.Tk):
         self.detector = FileDetector(db_folder_path=self.db_folder_path, memory_file_path=self.memory_file_path)
         self.processor = FileProcessor()
         changes, updated_memory = self.detector.check_changes()
-        if changes:
-            self.display_message(
-                message=f"{len(changes)} file change detected. Please wait for ragchat to update it's memory...",
-                sender="system"
-            )
-            changed_file_message = "Changed files are:\n"
-            for i, change in enumerate(changes):
-                changed_file_message += f"{i + 1} --> {change["file_path"]}\n"
+        if any(changes.values()):
+            changed_file_message = f"""Changed files detected!
+            --> {len(changes["insert"])} addition
+            --> {len(changes["update"])} update
+            --> {len(changes["delete"])} deletion\nPlease wait ragchat to synchronize it's memory..."""
             self.display_message(
                 message=changed_file_message,
                 sender="system"
             )
-            self.processor.insert_to_db(
-                changes=changes,
-                db_folder_path=self.db_folder_path,
-                updated_memory=updated_memory,
-            )
+            if changes["insert"]:
+                self.processor.index_insert(
+                    changes=changes["insert"],
+                    db_folder_path=self.db_folder_path,
+                )
+            if changes["update"]:
+                self.processor.index_update(
+                    changes=changes["update"],
+                    db_folder_path=self.db_folder_path,
+                )
+            if changes["delete"]:
+                self.processor.index_delete(
+                    changes=changes["delete"],
+                    db_folder_path=self.db_folder_path,
+                )
+            self.processor.update_memory(updated_memory=updated_memory, memory_json_path=self.memory_file_path)
             self.display_message(
                 message="Memory updated! Now ragchat knows everything select your domain and start asking!",
                 sender="system"
             )
-            self.processor.clean_processor()
         else:
             self.display_message(
                 message="Memory is sync. You can start the use ragchat! Please select your domain first!",

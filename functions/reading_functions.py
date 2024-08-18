@@ -1,7 +1,3 @@
-from tkinter import filedialog
-from tkinter import *
-from pathlib import Path
-import globals
 import PyPDF2
 import spacy
 
@@ -32,18 +28,3 @@ class ReadingFunctions:
                 pdf_data["sentences"].extend(valid_sentences)  
         
         return pdf_data
-
-    def select_pdf_file(self):
-        initial_dir = Path(__file__).resolve().parent.parent / "docs"
-        pdf_path = filedialog.askopenfilename(
-            title="Select PDF File",
-            initialdir=initial_dir,
-            filetypes=(
-                ("PDF files", "*.pdf"),
-                ("Text files", "*.txt"),
-            )
-        )
-        if pdf_path:
-            globals.pdf_path = pdf_path
-        else:
-            raise Exception("No file selected")

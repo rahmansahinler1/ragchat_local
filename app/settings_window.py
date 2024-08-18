@@ -43,7 +43,7 @@ class Window(tk.Toplevel):
             self,
             image=self.run_file_change_pic,
             command=lambda: [
-                self.check_changes(),
+                self.detect_changes(),
             ],
             bd=0,
             bg="#222222",
@@ -149,41 +149,53 @@ class Window(tk.Toplevel):
         if selected_indices:
             selected_item = self.listbox_domains.get(selected_indices[0])
             globals.selected_domain = selected_item.replace('--> ', '')
-            print(f"Selected domain: {globals.selected_domain}")
     
     def display_message(self, message: str):
         self.chatbox_log.update()
         self.chatbox_log.insert(tk.END, "- " + message + "\n")
         self.chatbox_log.update()
     
-    def check_changes(self):
+    def detect_changes(self):
         self.display_message(message="Checking the memory...",)
         changes, updated_memory = self.detector.check_changes()
-        if changes:
-            self.display_message(message=f"{len(changes)} file change detected. Please wait for ragchat to update it's memory...")
-            changed_file_message = "Changed files are:\n"
-            for i, change in enumerate(changes):
-                changed_file_message += f"{i + 1} --> {change["file_path"]}\n"
+        if any(changes.values()):
+            changed_file_message = f"""Changed files detected!
+            --> {len(changes["insert"])} addition
+            --> {len(changes["update"])} update
+            --> {len(changes["delete"])} deletion\nPlease wait ragchat to synchronize it's memory..."""
             self.display_message(message=changed_file_message)
-            self.processor.insert_to_db(
-                changes=changes,
-                db_folder_path=self.db_folder_path,
-                updated_memory=updated_memory,
-            )
-            self.display_message(message="Memory updated! Now ragchat knows everything select your domain and start asking!")
-            self.processor.clean_processor()
+            if changes["insert"]:
+                self.processor.index_insert(
+                    changes=changes["insert"],
+                    db_folder_path=self.db_folder_path,
+                )
+            if changes["update"]:
+                self.processor.index_update(
+                    changes=changes["update"],
+                    db_folder_path=self.db_folder_path,
+                )
+            if changes["delete"]:
+                self.processor.index_delete(
+                    changes=changes["delete"],
+                    db_folder_path=self.db_folder_path,
+                )
+            self.processor.update_memory(updated_memory=updated_memory, memory_json_path=self.memory_file_path)
+            self.display_message(message="Memory updated!")
         else:
-            self.display_message(message="Memory is sync. You can start the use ragchat! Please select your domain first!")
+            self.display_message(message="Memory is sync.")
 
     def on_close(self):
-        if self.db_folder_path:
+        if globals.selected_domain:
             index_path = self.db_folder_path  / "indexes" / (globals.selected_domain + ".pickle")
             try:
                 index_object = self.processor.indf.load_index(index_path=index_path)
-                globals.index = faiss.deserialize_index(index_object["index"])
+                globals.index = self.processor.create_index(embeddings=index_object["embeddings"])
+                globals.pdf_files = index_object["pdf_path"]
+                globals.pdf_sentence_amount = index_object["pdf_sentence_amount"]
                 globals.sentences = index_object["sentences"]
             except FileNotFoundError:
                 messagebox.showerror("Error!", "Index could not be found within your resource folder!")
         else:
             messagebox.showinfo("Information", "You did not select any resource folder!")
         self.destroy()
+        

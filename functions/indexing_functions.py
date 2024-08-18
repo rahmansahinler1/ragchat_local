@@ -9,13 +9,13 @@ class IndexingFunctions:
     def __init__(self):
         pass
 
-    def create_index_bytes(self,
+    def create_flat_index(self,
                     embeddings:np.ndarray,
         ):
         dimension = len(embeddings[0])
         index = faiss.IndexFlatL2(dimension)
         index.add(embeddings)
-        return faiss.serialize_index(index=index)
+        return index
 
     def load_index(self,
                    index_path: Path
