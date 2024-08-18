@@ -23,7 +23,6 @@ class ChatbotFunctions:
         Respond in the following format:
         - Extracted Information: [Provide the extracted data here]
         - Confidence: [High/Medium/Low - based on how clearly the information was stated in the text]
-        - Additional Context: [If necessary, provide a brief explanation or context]
 
         Remember to focus solely on the information present in the provided context windows. Do not include external knowledge or make assumptions beyond what is explicitly stated.
 

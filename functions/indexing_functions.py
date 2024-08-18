@@ -1,7 +1,7 @@
 import faiss
 import pickle
 import numpy as np
-from typing import List
+from typing import Dict
 from pathlib import Path
 
 
@@ -9,13 +9,13 @@ class IndexingFunctions:
     def __init__(self):
         pass
 
-    def create_index_bytes(self,
+    def create_flat_index(self,
                     embeddings:np.ndarray,
         ):
         dimension = len(embeddings[0])
         index = faiss.IndexFlatL2(dimension)
         index.add(embeddings)
-        return faiss.serialize_index(index=index)
+        return index
 
     def load_index(self,
                    index_path: Path
@@ -25,10 +25,8 @@ class IndexingFunctions:
         return index_object
 
     def save_index(self,
-                   index_bytes,
-                   sentences,
-                   save_path
+                   index_object: Dict,
+                   save_path: Path
         ):
-        index_object = {"index": index_bytes, "sentences": sentences}
         with open(save_path, "wb") as f:
             pickle.dump(index_object, f)
