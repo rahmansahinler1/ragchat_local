@@ -12,7 +12,7 @@ Also, if you like some of the feature please also send an e-mail about it.
 3) Install the necessary libraries. I highly suggest using virtual environments
 	- python --> 3.12
 	- libraries --> requirements.txt
-	- API Key --> Insert one openai api key under ".env" file with OPENAI_API_KEY = "<your api key here>"
+	- API Key --> Insert one openai api key under ".env" file with OPENAI_API_KEY = "your api key"
 
 ! ragchat can be used within both windows and mac environments.
 
