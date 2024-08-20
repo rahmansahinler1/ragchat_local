@@ -16,6 +16,8 @@ Also, if you like some of the feature please also send an e-mail about it.
 
 ! ragchat can be used within both windows and mac environments.
 
+You can start using it with running ragchat.bat file
+
 ![sample-usecase](https://github.com/user-attachments/assets/071a8e4b-2479-4376-bb5c-a8d1d91be4d4)
 
 **# User Guide**
