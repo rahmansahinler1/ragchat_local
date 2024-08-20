@@ -5,8 +5,6 @@ from tkinter import font as tkfont
 from PIL import Image, ImageTk
 from typing import List
 from pathlib import Path
-import faiss
-
 import globals
 
 
@@ -194,7 +192,7 @@ class Window(tk.Toplevel):
                 globals.pdf_sentence_amount = index_object["pdf_sentence_amount"]
                 globals.sentences = index_object["sentences"]
             except FileNotFoundError:
-                messagebox.showerror("Error!", "Index could not be found within your resource folder!")
+                messagebox.showerror("Error!", "No file registered database under this domain. Please insert one and click <run file detection> or run the ragchat again!")
         else:
             messagebox.showinfo("Information", "You did not select any resource folder!")
         self.destroy()
