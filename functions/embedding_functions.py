@@ -2,7 +2,6 @@ import numpy as np
 from openai import OpenAI
 from dotenv import load_dotenv
 from typing import List
-import globals
 
 
 class EmbeddingFunctions:
@@ -15,17 +14,17 @@ class EmbeddingFunctions:
             sentences: List[str],
             batch_size: int = 500
         ):
-        pdf_embeddings = []
+        file_embeddings = []
         batches = [sentences[i:i+batch_size] for i in range(0,len(sentences), batch_size)]
         
         for batch in batches:
             sentence_embedding = self.client.embeddings.create(
                 model="text-embedding-ada-002", input=batch
             )
-            pdf_embeddings.extend(sentence_embedding.data)
+            file_embeddings.extend(sentence_embedding.data)
 
         return np.array(
-            [x.embedding for x in pdf_embeddings], float
+            [x.embedding for x in file_embeddings], float
         )
 
     def create_vector_embedding_from_query(self, query):
