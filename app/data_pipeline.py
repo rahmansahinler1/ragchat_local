@@ -41,7 +41,7 @@ class FileDetector:
             file_name = file.parts[-1]
             domain = file.parts[-2]
             
-            if file_name.split(".")[-1] != "pdf":
+            if file_name.split(".")[-1] not in ["pdf", "docx", "txt", "rtf"]:
                 continue
             
             date_modified = datetime.fromtimestamp(file.stat().st_mtime)
@@ -107,7 +107,7 @@ class FileProcessor:
         ):
         # Add insertion changes to memory
         for change in changes:
-            self.pdf_change_to_memory(change=change)
+            self.file_change_to_memory(change=change)
         
         # Index insertion
         for key, value in self.change_dict.items():
@@ -115,8 +115,8 @@ class FileProcessor:
             index_path = db_folder_path / "indexes" / (key + ".pickle")
             try:
                 index_object = self.indf.load_index(index_path)
-                index_object["pdf_path"].extend(path for path in value["pdf_path"])
-                index_object["pdf_sentence_amount"].extend(sentence_amount for sentence_amount in value["pdf_sentence_amount"])
+                index_object["file_path"].extend(path for path in value["file_path"])
+                index_object["file_sentence_amount"].extend(sentence_amount for sentence_amount in value["file_sentence_amount"])
                 index_object["sentences"].extend(sentence for sentence in value["sentences"])
                 index_object["embeddings"] = np.vstack((index_object["embeddings"], value["embeddings"]))
                 
@@ -136,7 +136,7 @@ class FileProcessor:
         ):
         # Add update changes to memory
         for change in changes:
-            self.pdf_change_to_memory(change=change)
+            self.file_change_to_memory(change=change)
         
         # Index update
         for key, value in self.change_dict.items():
@@ -145,23 +145,23 @@ class FileProcessor:
                 index_object = self.indf.load_index(index_path)
                 # Take changed file indexes
                 file_path_indexes = []
-                for pdf_path in value["pdf_path"]:
-                    file_path_indexes.append(index_object["pdf_path"].index(pdf_path))            
+                for file_path in value["file_path"]:
+                    file_path_indexes.append(index_object["file_path"].index(file_path))            
                 # Update corresponding index and sentences with matching change and index object according to sentence amounts
                 cumulative_index = 0
                 diff = 0
                 for i, file_index in enumerate(file_path_indexes):
                     # Data assignments
-                    change_index_start = sum(sum(page_sentence_amount) for page_sentence_amount in index_object["pdf_sentence_amount"][:file_index]) + diff
-                    change_index_finish = change_index_start + sum(index_object["pdf_sentence_amount"][file_index]) + diff
-                    index_object["sentences"][change_index_start:change_index_finish] = value["sentences"][cumulative_index: sum(value["pdf_sentence_amount"][i])]
-                    index_object["embeddings"][change_index_start:change_index_finish] = value["embeddings"][cumulative_index: sum(value["pdf_sentence_amount"][i])]
+                    change_index_start = sum(sum(page_sentence_amount) for page_sentence_amount in index_object["file_sentence_amount"][:file_index]) + diff
+                    change_index_finish = change_index_start + sum(index_object["file_sentence_amount"][file_index]) + diff
+                    index_object["sentences"][change_index_start:change_index_finish] = value["sentences"][cumulative_index: sum(value["file_sentence_amount"][i])]
+                    index_object["embeddings"][change_index_start:change_index_finish] = value["embeddings"][cumulative_index: sum(value["file_sentence_amount"][i])]
                     # Index differences for next iteration
-                    diff = len(value["sentences"][cumulative_index: sum(value["pdf_sentence_amount"][i])]) - len(index_object["sentences"][change_index_start:change_index_finish])
-                    cumulative_index = sum(value["pdf_sentence_amount"][i])
+                    diff = len(value["sentences"][cumulative_index: sum(value["file_sentence_amount"][i])]) - len(index_object["sentences"][change_index_start:change_index_finish])
+                    cumulative_index = sum(value["file_sentence_amount"][i])
                 # Update sentence amounts list
                 for i, file_index in enumerate(file_path_indexes):
-                    index_object["pdf_sentence_amount"][file_index] = value["pdf_sentence_amount"][i]            
+                    index_object["file_sentence_amount"][file_index] = value["file_sentence_amount"][i]            
                 # Save index object
                 self.indf.save_index(
                     index_object=index_object,
@@ -186,15 +186,15 @@ class FileProcessor:
                 index_path = db_folder_path / "indexes" / (domain + ".pickle")
                 try:
                     index_object = self.indf.load_index(index_path)
-                    file_path_index = index_object["pdf_path"].index(change["file_path"])
+                    file_path_index = index_object["file_path"].index(change["file_path"])
 
                     # Delete corresponding parts from the index object
-                    change_index_start = sum(sum(page_sentence_amount) for page_sentence_amount in index_object["pdf_sentence_amount"][:file_path_index])
-                    change_index_finish = change_index_start + sum(index_object["pdf_sentence_amount"][file_path_index])
+                    change_index_start = sum(sum(page_sentence_amount) for page_sentence_amount in index_object["file_sentence_amount"][:file_path_index])
+                    change_index_finish = change_index_start + sum(index_object["file_sentence_amount"][file_path_index])
                     del index_object["sentences"][change_index_start:change_index_finish]
                     index_object["embeddings"] = np.delete(index_object["embeddings"], np.arange(change_index_start, change_index_finish), axis=0)
-                    index_object["pdf_path"].pop(file_path_index)
-                    index_object["pdf_sentence_amount"].pop(file_path_index)
+                    index_object["file_path"].pop(file_path_index)
+                    index_object["file_sentence_amount"].pop(file_path_index)
 
                 except FileNotFoundError as e:
                     raise FileExistsError(f"Index file could not be found for update!: {e}")
@@ -217,15 +217,15 @@ class FileProcessor:
         for i, resource in enumerate(resources):
             resources_text += textwrap.dedent(f"""
                 {i+1}
-                - PDF Name: {resource["pdf_name"].split("/")[-1]}
+                - file Name: {resource["file_name"].split("/")[-1]}
                 - Page Number: {resource["page"]}
             """)
         return self.cf.response_generation(query=user_query, context=context), resources_text
     
-    def pdf_change_to_memory(self, change: Dict):
+    def file_change_to_memory(self, change: Dict):
         # Create embeddings
-        pdf_data = self.rf.read_pdf(pdf_path=change["file_path"])
-        pdf_embeddings = self.ef.create_vector_embeddings_from_sentences(sentences=pdf_data["sentences"])
+        file_data = self.rf.read_file(file_path=change["file_path"])
+        file_embeddings = self.ef.create_vector_embeddings_from_sentences(sentences=file_data["sentences"])
 
         # Detect changed domain
         pattern = r'domain\d+'
@@ -233,16 +233,16 @@ class FileProcessor:
         if match:
             domain = match[0]
             if domain in self.change_dict.keys():
-                self.change_dict[domain]["pdf_path"].append(change["file_path"])
-                self.change_dict[domain]["pdf_sentence_amount"].append(pdf_data["page_sentence_amount"])
-                self.change_dict[domain]["sentences"].extend(pdf_data["sentences"])
-                self.change_dict[domain]["embeddings"] = np.vstack((self.change_dict[domain]["embeddings"], pdf_embeddings))
+                self.change_dict[domain]["file_path"].append(change["file_path"])
+                self.change_dict[domain]["file_sentence_amount"].append(file_data["page_sentence_amount"])
+                self.change_dict[domain]["sentences"].extend(file_data["sentences"])
+                self.change_dict[domain]["embeddings"] = np.vstack((self.change_dict[domain]["embeddings"], file_embeddings))
             else:
                 self.change_dict[domain] = {
-                    "pdf_path": [change["file_path"]],
-                    "pdf_sentence_amount": [pdf_data["page_sentence_amount"]],
-                    "sentences": pdf_data["sentences"],
-                    "embeddings": pdf_embeddings
+                    "file_path": [change["file_path"]],
+                    "file_sentence_amount": [file_data["page_sentence_amount"]],
+                    "sentences": file_data["sentences"],
+                    "embeddings": file_embeddings
                 }
 
     def extract_embeddings_from_index(self, index):
@@ -262,15 +262,15 @@ class FileProcessor:
     def extract_resources(self, convergence_vector: np.ndarray):
         resources = []
         for index in convergence_vector:
-            cumulative_pdf_sentence_sum = 0
-            for i, sentence_amount in enumerate(globals.pdf_sentence_amount):
-                cumulative_pdf_sentence_sum += sum(sentence_amount)
-                if cumulative_pdf_sentence_sum > index:
+            cumulative_file_sentence_sum = 0
+            for i, sentence_amount in enumerate(globals.file_sentence_amount):
+                cumulative_file_sentence_sum += sum(sentence_amount)
+                if cumulative_file_sentence_sum > index:
                     cumulative_page_sentence_sum = 0
                     for j, page_sentence_amount in enumerate(sentence_amount):
                         cumulative_page_sentence_sum += page_sentence_amount
-                        if sum(sum(page_sentence_amount) for page_sentence_amount in globals.pdf_sentence_amount[:i]) + cumulative_page_sentence_sum  > index:
-                            resource = {"pdf_name": globals.pdf_files[i], "page": j + 1}
+                        if sum(sum(page_sentence_amount) for page_sentence_amount in globals.file_sentence_amount[:i]) + cumulative_page_sentence_sum  > index:
+                            resource = {"file_name": globals.files[i], "page": j + 1}
                             if resource not in resources:
                                 resources.append(resource)
                             break

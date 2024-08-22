@@ -20,10 +20,10 @@ class App(tk.Tk):
         ):
         super().__init__()
         # Initialize necessary folders
-        self.config_file_path = Path(__file__).resolve().parent.parent / "utils" / "config.json"
-        self.db_folder_path = ""
+        self.main_folder_path = Path(__file__).resolve().parent.parent
+        self.db_folder_path = None
+        self.memory_file_path = None
         self.domain_folders = []
-        self.memory_file_path = ""
         self.detector = None
         self.processor = None
 
@@ -118,29 +118,25 @@ class App(tk.Tk):
         self.after(100, self.on_start)
     
     def check_necessary_paths(self):
-        try:
-            with open(self.config_file_path, "r") as file:
-                config_data = json.load(file)
-        except FileNotFoundError:
-            messagebox.showerror("Error!", f"Memory file could not be found in {self.config_file_path}!")
-            self.destroy()
-
-        if config_data[0]["db_path"]:
-            self.db_folder_path = Path(config_data[0]["db_path"])
-            self.memory_file_path = self.db_folder_path / "memory.json"
-        else:
-            if config_data[0]["environment"] == "Windows":
-                db_path = f"C:/Users/{config_data[0]["user_name"]}/Documents/ragchat_local/db"
-                config_data[0]["db_path"] = db_path
-                self.db_folder_path = Path(db_path)
-                self.memory_file_path = self.db_folder_path / "memory.json"
-                with open(self.config_json_path, "w") as file:
-                    config_data = json.dump(config_data, file, indent=4)
-            elif config_data[0]["environment"] == "MacOS":
-                # :TODO: Add configuration for macos
-                raise EnvironmentError("MacOS is not yet configured for RAG Chat Local!")
-            else:
-                raise EnvironmentError("Only Windows and MacOS is configured for RAG Chat Local!")
+        # Check necessary files if there are not available initialize them
+        initialized = 0
+        self.db_folder_path = self.main_folder_path / "db"
+        self.memory_file_path = self.db_folder_path / "memory.json"
+        
+        # Check availabilit oy the db folder if not initialize it with the subfolders
+        if not self.db_folder_path.exists():
+            self.db_folder_path.mkdir()
+            (self.db_folder_path / "domains").mkdir()
+            (self.db_folder_path / "domains" / "domain1").mkdir()
+            (self.db_folder_path / "domains" / "domain2").mkdir()
+            (self.db_folder_path / "domains" / "domain3").mkdir()
+            (self.db_folder_path / "domains" / "domain4").mkdir()
+            (self.db_folder_path / "domains" / "domain5").mkdir()
+            (self.db_folder_path / "indexes").mkdir()
+            with self.memory_file_path.open("w") as json_file:
+                json.dump([], json_file)
+            initialized = 1
+        return self.db_folder_path, self.memory_file_path, initialized
 
     def get_domain_folder_list(self,db_folder_path: str):
         domain_folder = Path(db_folder_path) / "domains"
@@ -201,13 +197,13 @@ class App(tk.Tk):
             message="Welcome the ragchat! Please wait ragchat to checking it's memory for any change...",
             sender="system"
         )
-        self.check_necessary_paths()
+        self.db_folder_path, self.memory_file_path, initialized = self.check_necessary_paths()
         self.domain_folders = self.get_domain_folder_list(db_folder_path=self.db_folder_path)
         self.detector = FileDetector(db_folder_path=self.db_folder_path, memory_file_path=self.memory_file_path)
         self.processor = FileProcessor()
         changes, updated_memory = self.detector.check_changes()
         if any(changes.values()):
-            changed_file_message = f"""Changed files detected!
+            changed_file_message = f"""File changes detected!
             --> {len(changes["insert"])} addition
             --> {len(changes["update"])} update
             --> {len(changes["delete"])} deletion\nPlease wait ragchat to synchronize it's memory..."""
@@ -235,9 +231,14 @@ class App(tk.Tk):
                 message="Memory updated! Now ragchat knows everything select your domain and start asking!",
                 sender="system"
             )
-        else:
+        elif not initialized:
             self.display_message(
                 message="Memory is sync. You can start the use ragchat! Please select your domain first!",
+                sender="system"
+            )
+        else:
+            self.display_message(
+                message="Seems like you're using ragchat first time! Database folder initialized for you, just insert your documents under <db/domains> and start asking!",
                 sender="system"
             )
         self.button_ask.config(state="normal")
