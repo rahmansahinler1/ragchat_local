@@ -2,6 +2,7 @@ from typing import Dict, List
 from pathlib import Path
 from datetime import datetime
 import numpy as np
+import os 
 
 import faiss
 import json
@@ -118,6 +119,7 @@ class FileProcessor:
                 index_object["file_path"].extend(path for path in value["file_path"])
                 index_object["file_sentence_amount"].extend(sentence_amount for sentence_amount in value["file_sentence_amount"])
                 index_object["sentences"].extend(sentence for sentence in value["sentences"])
+                index_object["date"].extend(date for date in value["date"])
                 index_object["embeddings"] = np.vstack((index_object["embeddings"], value["embeddings"]))
                 
                 self.indf.save_index(
@@ -146,7 +148,7 @@ class FileProcessor:
                 # Take changed file indexes
                 file_path_indexes = []
                 for file_path in value["file_path"]:
-                    file_path_indexes.append(index_object["file_path"].index(file_path))            
+                    file_path_indexes.append(index_object["file_path"].index(file_path))           
                 # Update corresponding index and sentences with matching change and index object according to sentence amounts
                 cumulative_index = 0
                 diff = 0
@@ -194,14 +196,70 @@ class FileProcessor:
                     del index_object["sentences"][change_index_start:change_index_finish]
                     index_object["embeddings"] = np.delete(index_object["embeddings"], np.arange(change_index_start, change_index_finish), axis=0)
                     index_object["file_path"].pop(file_path_index)
+                    index_object["date"].pop(file_path_index)
                     index_object["file_sentence_amount"].pop(file_path_index)
+                   
+                   #Removing pickle if file is empty
+                    if len(index_object["file_path"]) == 0:
+                        os.remove(index_path)
+                    else:    
+                      # Save index object
+                        self.indf.save_index(
+                            index_object=index_object,
+                            save_path=index_path
+                         )
 
                 except FileNotFoundError as e:
                     raise FileExistsError(f"Index file could not be found for update!: {e}")
-    
+                
+    def index_filter(
+            self,
+            index_object,
+            date
+        ):
+        shape = index_object["embeddings"].shape
+        filtered_index = {
+                "file_path": [],
+                "file_sentence_amount": [],
+                "sentences" : [],
+                "date" : [],
+                "embeddings": np.empty(shape=shape)
+        }
+        file_path_index = []
+        if isinstance(date,str) and len(date) > 0:
+            date = datetime.strptime(date,"%m/%d/%y")
+            for i in range(len(index_object["file_path"])):
+                created_date_str = index_object["date"][i]
+                created_date = datetime.strptime(created_date_str,"%Y-%m-%d")
+                if created_date >= date:
+                        file_path_index.append(i)
+                        try:
+                            filtered_index["file_path"].append(index_object["file_path"][i])
+                            filtered_index["file_sentence_amount"].append(index_object["file_sentence_amount"][i])
+                            filtered_index["date"].append(index_object["date"][i])
+                        except FileNotFoundError as e:
+                            raise FileExistsError(f"Index file could not be found for filtering!: {e}")
+                else:
+                    continue    
+
+            for file_path in file_path_index:
+                try:    
+                    sentence_start = sum(sum(page_sentences) for page_sentences  in index_object["file_sentence_amount"][:file_path])
+                    sentence_end =  sentence_start + sum(index_object["file_sentence_amount"][file_path])
+
+                    filtered_index["sentences"].extend(index_object["sentences"][sentence_start:sentence_end])
+                    filtered_index["embeddings"] = np.vstack((index_object["embeddings"][sentence_start:sentence_end],filtered_index["embeddings"]))
+
+                except FileNotFoundError as e:
+                    raise FileExistsError(f"Index file could not be found for filtering!: {e}")
+            else:
+                return filtered_index
+        else:
+            return index_object
+        
     def search_index(
             self,
-            user_query: np.ndarray,
+            user_query: np.ndarray
     ):
         query_vector = self.ef.create_vector_embedding_from_query(query=user_query)
         _, I = globals.index.search(query_vector, 5)
@@ -236,12 +294,14 @@ class FileProcessor:
                 self.change_dict[domain]["file_path"].append(change["file_path"])
                 self.change_dict[domain]["file_sentence_amount"].append(file_data["page_sentence_amount"])
                 self.change_dict[domain]["sentences"].extend(file_data["sentences"])
+                self.change_dict[domain]["date"].extend(file_data["date"])
                 self.change_dict[domain]["embeddings"] = np.vstack((self.change_dict[domain]["embeddings"], file_embeddings))
             else:
                 self.change_dict[domain] = {
                     "file_path": [change["file_path"]],
                     "file_sentence_amount": [file_data["page_sentence_amount"]],
                     "sentences": file_data["sentences"],
+                    "date" : file_data["date"],
                     "embeddings": file_embeddings
                 }
 
@@ -274,6 +334,9 @@ class FileProcessor:
                             if resource not in resources:
                                 resources.append(resource)
                             break
+                    else:
+                        continue
+                    break            
         return resources
 
     def clean_processor(self):

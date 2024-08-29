@@ -2,10 +2,12 @@ from tkinter import *
 import tkinter as tk
 from tkinter import messagebox
 from tkinter import font as tkfont
+from tkcalendar import *
 from PIL import Image, ImageTk
 from typing import List
 from pathlib import Path
 import globals
+from datetime import datetime
 
 
 class Window(tk.Toplevel):
@@ -32,7 +34,7 @@ class Window(tk.Toplevel):
         self.configure(bg="#222222")
         self.title("settings")
         self.wm_iconbitmap("assets/ragchat_icon.ico")
-
+        self.cal = Calendar(self,selectmode="day",foreground = 'white')
         # Button run file change detection
         self.run_file_change_image = Image.open("assets/run_file_detection.png")
         self.run_file_change_image = self.run_file_change_image.resize((38, 25), Image.LANCZOS)
@@ -130,6 +132,24 @@ class Window(tk.Toplevel):
                     self.listbox_domains.selection_set(i)
                     self.listbox_domains.see(i)
                     break
+        #Calendar 
+        self.cal.place(x = 350 ,y= 137, height=150)
+        self.cal.lift()
+        self.label_calendar = tk.Label(self, text="Date Selection", font=("Helvetica", 16, "bold"), bg="#222222", fg="white")
+        self.label_date = tk.Label(self, text="", font=("Helvetica", 16, "bold"), bg="#222222", fg="white")
+        self.label_date.place(x= 380 ,y = 330)
+        self.label_calendar.place(x=340, y=107)
+        self.date_selection = tk.Button(
+            self,
+            text= "Fiter by Date",
+            command=lambda : [
+                self.show_date(),
+                ],
+            bd=0,
+            bg="#222222",
+            highlightthickness=0
+        )
+        self.date_selection.place(x = 410 , y = 300)
 
         # Chatbox
         self.chatbox_log = Text(self, wrap=WORD)
@@ -181,16 +201,28 @@ class Window(tk.Toplevel):
             self.display_message(message="Memory updated!")
         else:
             self.display_message(message="Memory is sync.")
+            
+    def show_date(self):
+        self.label_date.config(text="Selected date is " + self.cal.get_date())
 
+    def filter_date(self):
+        selected_date = self.cal.get_date()
+        today = datetime.today()
+        if selected_date == today.strftime("%-m/%d/%y"):
+            return ""
+        else:
+            return selected_date
+    
     def on_close(self):
         if globals.selected_domain:
             index_path = self.db_folder_path  / "indexes" / (globals.selected_domain + ".pickle")
             try:
                 index_object = self.processor.indf.load_index(index_path=index_path)
-                globals.index = self.processor.create_index(embeddings=index_object["embeddings"])
-                globals.files = index_object["file_path"]
-                globals.file_sentence_amount = index_object["file_sentence_amount"]
-                globals.sentences = index_object["sentences"]
+                index_object_filtered = self.processor.index_filter(index_object,date = self.filter_date())
+                globals.index = self.processor.create_index(embeddings=index_object_filtered["embeddings"])
+                globals.files = index_object_filtered["file_path"]
+                globals.file_sentence_amount = index_object_filtered["file_sentence_amount"]
+                globals.sentences = index_object_filtered["sentences"]
             except FileNotFoundError:
                 messagebox.showerror("Error!", "No file registered database under this domain. Please insert one and click <run file detection> or run the ragchat again!")
         else:

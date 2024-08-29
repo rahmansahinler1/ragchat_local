@@ -2,6 +2,8 @@ import PyPDF2
 from docx import Document
 import spacy
 from pathlib import Path
+from datetime import datetime
+import os 
 
 
 class ReadingFunctions:
@@ -14,7 +16,8 @@ class ReadingFunctions:
     def read_file(self, file_path: str):
         file_data = {
             "page_sentence_amount": [],
-            "sentences": []
+            "sentences": [],
+            "date" : []
         }
         # Open file
         path = Path(file_path)
@@ -23,16 +26,22 @@ class ReadingFunctions:
             if file_extension == '.pdf':
                 with path.open('rb') as file:
                     pdf_reader = PyPDF2.PdfReader(file)
+                    pdf_date = datetime.date(pdf_reader.metadata.creation_date).strftime("%Y-%m-%d")
+                    file_data["date"].append(pdf_date)
                     for page in pdf_reader.pages:
                         page_text = page.extract_text()
                         self._process_text(page_text, file_data)
             
             elif file_extension == '.docx':
                 doc = Document(path)
+                doc_date = datetime.date(doc.core_properties.created).strftime("%Y-%m-%d")
+                file_data["date"].append(doc_date)
                 for para in doc.paragraphs:
                     self._process_text(para.text, file_data)
             
             elif file_extension in ['.txt', '.rtf']:
+                txt_date = os.path.getctime(path)
+                file_data["date"].append(txt_date)
                 text = path.read_text(encoding='utf-8')
                 self._process_text(text, file_data)
             
