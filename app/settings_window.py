@@ -139,6 +139,7 @@ class Window(tk.Toplevel):
         self.label_date = tk.Label(self, text="", font=("Helvetica", 16, "bold"), bg="#222222", fg="white")
         self.label_date.place(x= 380 ,y = 330)
         self.label_calendar.place(x=340, y=107)
+        #Button to filter selected date
         self.date_selection = tk.Button(
             self,
             text= "Fiter by Date",
@@ -208,7 +209,7 @@ class Window(tk.Toplevel):
     def filter_date(self):
         selected_date = self.cal.get_date()
         today = datetime.today()
-        if selected_date == today.strftime("%-m/%d/%y"):
+        if selected_date == today.strftime("%-m/%-d/%y"):
             return ""
         else:
             return selected_date
