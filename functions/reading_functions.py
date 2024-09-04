@@ -26,6 +26,8 @@ class ReadingFunctions:
             if file_extension == '.pdf':
                 with path.open('rb') as file:
                     pdf_reader = PyPDF2.PdfReader(file)
+                    #TODO: try except for date
+                    #TODO: change this to fstring
                     pdf_date = datetime.date(pdf_reader.metadata.creation_date).strftime("%Y-%m-%d")
                     file_data["date"].append(pdf_date)
                     for page in pdf_reader.pages:

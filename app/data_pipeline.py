@@ -226,6 +226,7 @@ class FileProcessor:
                 "embeddings": np.empty(shape=shape)
         }
         file_path_index = []
+        #TODO: if date
         if isinstance(date,str) and len(date) > 0:
             date = datetime.strptime(date,"%m/%d/%y")
             for i in range(len(index_object["file_path"])):
@@ -241,10 +242,10 @@ class FileProcessor:
                             raise FileExistsError(f"Index file could not be found for filtering!: {e}")
                 else:
                     continue    
-
+            #TODO: for index in file path_indexes
             for file_path in file_path_index:
                 try:    
-                    sentence_start = sum(sum(page_sentences) for page_sentences  in index_object["file_sentence_amount"][:file_path])
+                    sentence_start = sum(sum(page_sentences) for page_sentences in index_object["file_sentence_amount"][:file_path])
                     sentence_end =  sentence_start + sum(index_object["file_sentence_amount"][file_path])
 
                     filtered_index["sentences"].extend(index_object["sentences"][sentence_start:sentence_end])

@@ -34,7 +34,7 @@ class Window(tk.Toplevel):
         self.configure(bg="#222222")
         self.title("settings")
         self.wm_iconbitmap("assets/ragchat_icon.ico")
-        self.cal = Calendar(self,selectmode="day",foreground = 'white')
+        self.cal = Calendar(self, selectmode="day", foreground='white')
         # Button run file change detection
         self.run_file_change_image = Image.open("assets/run_file_detection.png")
         self.run_file_change_image = self.run_file_change_image.resize((38, 25), Image.LANCZOS)
@@ -132,14 +132,18 @@ class Window(tk.Toplevel):
                     self.listbox_domains.selection_set(i)
                     self.listbox_domains.see(i)
                     break
-        #Calendar 
+        #TODO: bosluk
+        #Calendar
+        #TODO: bosluk
         self.cal.place(x = 350 ,y= 137, height=150)
         self.cal.lift()
         self.label_calendar = tk.Label(self, text="Date Selection", font=("Helvetica", 16, "bold"), bg="#222222", fg="white")
         self.label_date = tk.Label(self, text="", font=("Helvetica", 16, "bold"), bg="#222222", fg="white")
         self.label_date.place(x= 380 ,y = 330)
         self.label_calendar.place(x=340, y=107)
+        #TODO: bosluk
         #Button to filter selected date
+        #TODO: remove the filter by date button
         self.date_selection = tk.Button(
             self,
             text= "Fiter by Date",
@@ -150,7 +154,7 @@ class Window(tk.Toplevel):
             bg="#222222",
             highlightthickness=0
         )
-        self.date_selection.place(x = 410 , y = 300)
+        self.date_selection.place(x = 410 , y = 300)#TODO: bosluk
 
         # Chatbox
         self.chatbox_log = Text(self, wrap=WORD)
@@ -209,7 +213,8 @@ class Window(tk.Toplevel):
     def filter_date(self):
         selected_date = self.cal.get_date()
         today = datetime.today()
-        if selected_date == today.strftime("%-m/%-d/%y"):
+        #TODO: selected date <= today logic implementation
+        if selected_date == f"{today.month}/{today.day}/{today.year%2000}":
             return ""
         else:
             return selected_date
@@ -229,4 +234,3 @@ class Window(tk.Toplevel):
         else:
             messagebox.showinfo("Information", "You did not select any resource folder!")
         self.destroy()
-        
