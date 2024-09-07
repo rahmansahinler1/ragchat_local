@@ -2,7 +2,6 @@ from typing import Dict, List
 from pathlib import Path
 from datetime import datetime
 import numpy as np
-import os 
 
 import faiss
 import json
@@ -201,7 +200,7 @@ class FileProcessor:
                    
                    #Removing pickle if file is empty
                     if len(index_object["file_path"]) == 0:
-                        os.remove(index_path)
+                        Path.unlink(index_path)
                     else:    
                       # Save index object
                         self.indf.save_index(
@@ -225,28 +224,25 @@ class FileProcessor:
                 "date" : [],
                 "embeddings": np.empty(shape=shape)
         }
-        file_path_index = []
-        #TODO: if date
-        if isinstance(date,str) and len(date) > 0:
+        file_path_indexes = []
+        if date:
             date = datetime.strptime(date,"%m/%d/%y")
             for i in range(len(index_object["file_path"])):
                 created_date_str = index_object["date"][i]
-                created_date = datetime.strptime(created_date_str,"%Y-%m-%d")
+                created_date = datetime.strptime(created_date_str,"%y-%m-%d")
                 if created_date >= date:
-                        file_path_index.append(i)
+                        file_path_indexes.append(i)
                         try:
                             filtered_index["file_path"].append(index_object["file_path"][i])
                             filtered_index["file_sentence_amount"].append(index_object["file_sentence_amount"][i])
                             filtered_index["date"].append(index_object["date"][i])
                         except FileNotFoundError as e:
                             raise FileExistsError(f"Index file could not be found for filtering!: {e}")
-                else:
-                    continue    
-            #TODO: for index in file path_indexes
-            for file_path in file_path_index:
-                try:    
-                    sentence_start = sum(sum(page_sentences) for page_sentences in index_object["file_sentence_amount"][:file_path])
-                    sentence_end =  sentence_start + sum(index_object["file_sentence_amount"][file_path])
+                        
+            for index in file_path_indexes:
+                try:
+                    sentence_start = sum(sum(page_sentences) for page_sentences in index_object["file_sentence_amount"][:index])
+                    sentence_end =  sentence_start + sum(index_object["file_sentence_amount"][index])
 
                     filtered_index["sentences"].extend(index_object["sentences"][sentence_start:sentence_end])
                     filtered_index["embeddings"] = np.vstack((index_object["embeddings"][sentence_start:sentence_end],filtered_index["embeddings"]))
@@ -335,8 +331,6 @@ class FileProcessor:
                             if resource not in resources:
                                 resources.append(resource)
                             break
-                    else:
-                        continue
                     break            
         return resources
 

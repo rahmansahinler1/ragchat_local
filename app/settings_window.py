@@ -132,29 +132,14 @@ class Window(tk.Toplevel):
                     self.listbox_domains.selection_set(i)
                     self.listbox_domains.see(i)
                     break
-        #TODO: bosluk
+
         #Calendar
-        #TODO: bosluk
-        self.cal.place(x = 350 ,y= 137, height=150)
+        self.cal.place(x=350, y=137, height=150)
         self.cal.lift()
         self.label_calendar = tk.Label(self, text="Date Selection", font=("Helvetica", 16, "bold"), bg="#222222", fg="white")
         self.label_date = tk.Label(self, text="", font=("Helvetica", 16, "bold"), bg="#222222", fg="white")
-        self.label_date.place(x= 380 ,y = 330)
+        self.label_date.place(x=380, y=330)
         self.label_calendar.place(x=340, y=107)
-        #TODO: bosluk
-        #Button to filter selected date
-        #TODO: remove the filter by date button
-        self.date_selection = tk.Button(
-            self,
-            text= "Fiter by Date",
-            command=lambda : [
-                self.show_date(),
-                ],
-            bd=0,
-            bg="#222222",
-            highlightthickness=0
-        )
-        self.date_selection.place(x = 410 , y = 300)#TODO: bosluk
 
         # Chatbox
         self.chatbox_log = Text(self, wrap=WORD)
@@ -206,15 +191,11 @@ class Window(tk.Toplevel):
             self.display_message(message="Memory updated!")
         else:
             self.display_message(message="Memory is sync.")
-            
-    def show_date(self):
-        self.label_date.config(text="Selected date is " + self.cal.get_date())
 
     def filter_date(self):
         selected_date = self.cal.get_date()
         today = datetime.today()
-        #TODO: selected date <= today logic implementation
-        if selected_date == f"{today.month}/{today.day}/{today.year%2000}":
+        if datetime.strptime(selected_date,"%m/%d/%y").date() >= today.date():
             return ""
         else:
             return selected_date
