@@ -10,8 +10,6 @@ __pycache__/
 *.pdf
 #docx files
 *.docx
-#jupyter notabooks
-*.ipynb
 #csv
 *.csv
 # Distribution / packaging
