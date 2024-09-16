@@ -4,13 +4,14 @@ import spacy
 from pathlib import Path
 from datetime import datetime
 import os 
+import re
 
 
 class ReadingFunctions:
     def __init__(self):
         self.nlp = spacy.load(
             "en_core_web_sm",
-            disable=[ "tagger", "attribute_ruler", "lemmatizer", "ner","textcat","custom "]
+            disable=[ "tagger", "attribute_ruler", "lemmatizer", "ner","textcat","custom"]
         )
 
     def read_file(self, file_path: str):
@@ -32,8 +33,9 @@ class ReadingFunctions:
                     except TypeError as e:
                         raise TypeError(f"PDF creation date could not extracted!: {e}")
                     for page in pdf_reader.pages:
-                        page_text = page.extract_text()
-                        self._process_text(page_text, file_data)
+                        page_text = page.extract_text(orientations=0)
+                        clean_text= self._process_regex(page_text)
+                        self._process_text(clean_text, file_data)
             elif file_extension == '.docx':
                 doc = Document(path)
                 try:
@@ -42,7 +44,8 @@ class ReadingFunctions:
                 except TypeError as e:
                     raise TypeError(f"Doc creation date could not extracted!: {e}")
                 for para in doc.paragraphs:
-                    self._process_text(para.text, file_data)
+                    clean_text= self._process_regex(para.text)
+                    self._process_text(clean_text, file_data)
             elif file_extension in ['.txt', '.rtf']:
                 txt_date = os.path.getctime(path)
                 file_data["date"].append(txt_date)
@@ -59,9 +62,21 @@ class ReadingFunctions:
     
         return file_data
 
+    def _process_regex(self, text):
+        clean_text = text.replace('\n','').strip()
+        clean_text = re.sub(r'\s+', ' ',clean_text) #clean multiple spaces
+        clean_text = re.sub(r'[^A-Za-z0-9\s.,!?\'"-]', '',clean_text) #keep only common puncts
+        clean_text = re.sub(r'(\w+)-\s+(\w+)', r'\1\2', clean_text) #edit newline strings 'out- perform' to 'outperform'
+        clean_text = re.sub(r'\s+([A-Z])\s+([A-Z])', r' \1\2', clean_text) #edit 'T OWARDS' TO 'TOWARDS'
+        clean_text = re.sub(r'(\d+)\s*\n\s*([A-Za-z])', r'\1 \2', clean_text) #edit ' RAGTOWARDS' TO 'RAG TOWARDS'
+        clean_text = re.sub(r'\b(Fig|Figure)\b.*?\.','', clean_text,flags=re.IGNORECASE | re.DOTALL) #clean fig or figure texts
+        clean_text = re.sub(r'\bwww\.[^\s]*?\.com\b.*?\.','', clean_text,flags=re.IGNORECASE | re.DOTALL)# clean links
+        clean_text = re.sub(r'\s\d\s','', clean_text) #clean ' 1 ' strings
+        return clean_text
+    
     def _process_text(self, text, file_data):
         docs = self.nlp(text)
         sentences = [sent.text.replace('\n', ' ').strip() for sent in docs.sents]
-        valid_sentences = [sentence for sentence in sentences if len(sentence) > 15]
+        valid_sentences = [sentence for sentence in sentences if len(sentence) > 10]
         file_data["page_sentence_amount"].append(len(valid_sentences))
         file_data["sentences"].extend(valid_sentences)
