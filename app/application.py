@@ -155,7 +155,6 @@ class App(tk.Tk):
     def generate_queries(self):
         if globals.index:
             query = self.chatbox_ask.get("1.0", "end-1c")
-            globals.og_query = query
             self.display_message(message=query, sender="user")
             self.clear_input()
             new_queries = self.processor.preprocessed_query(query=query)

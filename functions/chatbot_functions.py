@@ -15,18 +15,19 @@ class ChatbotFunctions:
             return textwrap.dedent(f"""      
             I am building a project based on RAG method.
             Projects purpose is taking the user query and doing semantic search on the database user provided.
+            Check the user query for spelling errors, correct the errors and write the corrected query as appropriate to the below template.
             To improve the semantic search, I want you to create 5 additional questions to be used in semantic search algorithm.
             Create me 5 different and totally 6 with original query but semantically similar questions.
                                    
             User query: {query}
 
             Create response as this template:
-            1. Original user query.
-            2. First semantically similar query.
-            3. Second semantically similar query.
-            4. Third semantically similar query.
-            5. Fourth semantically similar query.
-            6. Fifth semantically similar query.
+            [Corrected original user query.]
+            [First semantically similar query.]
+            [Second semantically similar query.]
+            [Third semantically similar query.]
+            [Fourth semantically similar query.]
+            [Fifth semantically similar query.]
             """)
 
     def _prompt_with_context_builder(self, query, context, lang):

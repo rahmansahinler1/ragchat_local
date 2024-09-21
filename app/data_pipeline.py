@@ -262,11 +262,15 @@ class FileProcessor:
             user_query: np.ndarray
     ):
         split_queries = user_query.split('\n')
+        globals.og_query = split_queries[0]
         index_list = []
         for query in split_queries:
-            query_vector = self.ef.create_vector_embedding_from_query(query=query)
-            _, I = globals.index.search(query_vector, 3)
-            index_list.extend(I[0])
+            if(len(query) < 10):
+                continue
+            else:
+                query_vector = self.ef.create_vector_embedding_from_query(query=query)
+                _, I = globals.index.search(query_vector, 3)
+                index_list.extend(I[0])
         unique_index_list = list(set(index_list))
         widen_sentences = self.widen_sentences(window_size=1, convergence_vector=unique_index_list)
         context = self.create_dynamic_context(sentences=widen_sentences)
