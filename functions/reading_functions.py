@@ -5,6 +5,7 @@ from pathlib import Path
 from datetime import datetime
 import os 
 import re
+from spacy.matcher import Matcher
 
 
 class ReadingFunctions:
@@ -63,15 +64,15 @@ class ReadingFunctions:
         return file_data
 
     def _process_regex(self, text):
-        clean_text = text.replace('\n','').strip()
-        clean_text = re.sub(r'\s+', ' ',clean_text) #clean multiple spaces
-        clean_text = re.sub(r'[^A-Za-z0-9\s.,!?\'"-]', '',clean_text) #keep only common puncts
-        clean_text = re.sub(r'(\w+)-\s+(\w+)', r'\1\2', clean_text) #edit newline strings 'out- perform' to 'outperform'
-        clean_text = re.sub(r'\s+([A-Z])\s+([A-Z])', r' \1\2', clean_text) #edit 'T OWARDS' TO 'TOWARDS'
-        clean_text = re.sub(r'(\d+)\s*\n\s*([A-Za-z])', r'\1 \2', clean_text) #edit ' RAGTOWARDS' TO 'RAG TOWARDS'
-        clean_text = re.sub(r'\b(Fig|Figure)\b.*?\.','', clean_text,flags=re.IGNORECASE | re.DOTALL) #clean fig or figure texts
-        clean_text = re.sub(r'\bwww\.[^\s]*?\.com\b.*?\.','', clean_text,flags=re.IGNORECASE | re.DOTALL)# clean links
-        clean_text = re.sub(r'\s\d\s','', clean_text) #clean ' 1 ' strings
+        clean_text = text.replace('\n','').strip() # Clean whitespaces and replace \n with space
+        clean_text = re.sub(r'\s+', ' ',clean_text) # Clean multiple spaces
+        clean_text = re.sub(r'(\w+)-\s+(\w+)', r'\1\2', clean_text) # Edit newline strings 'out- perform' to 'outperform'
+        clean_text = re.sub(r'\s+([A-Z])\s+([A-Z])', r' \1\2', clean_text) # Edit 'T OWARDS' TO 'TOWARDS'
+        clean_text = re.sub(r'(\d+)\s*\n\s*([A-Za-z])', r'\1 \2', clean_text) # Edit ' RAGTOWARDS' TO 'RAG TOWARDS'
+        clean_text = re.sub(r'(?i)\btable\s+\d+[:.]*\s*[^.]*\.',r' ', clean_text) # Clean table texts
+        clean_text = re.sub(r'\b[Ff]ig(ure)?\s*\d{1,3}\s*[:.]?\s*.*?(?=\n|$)','', clean_text,flags=re.IGNORECASE | re.DOTALL) # Clean figure texts
+        clean_text = re.sub(r'\bwww\.[^\s]*?\.com\b.*?\.','', clean_text,flags=re.IGNORECASE | re.DOTALL)# Clean URL's
+        clean_text = re.sub(r'\s\d\s','', clean_text) # Clean ' 1 ' strings 
         return clean_text
     
     def _process_text(self, text, file_data):
@@ -80,3 +81,21 @@ class ReadingFunctions:
         valid_sentences = [sentence for sentence in sentences if len(sentence) > 10]
         file_data["page_sentence_amount"].append(len(valid_sentences))
         file_data["sentences"].extend(valid_sentences)
+
+    # #query spell handler
+    # def spell_checker(self,text):
+    #     spell = SpellChecker()
+    #     docs = self.nlp(text)
+    #     correct_words = []    
+    #     for token in docs:
+    #         word = token.text
+
+    #         if token.is_alpha:
+    #             if word.lower() in spell.unknown([word]):
+    #                 correction = spell.correction(word)
+    #                 correct_words.append(correction)
+    #             else:
+    #                 correct_words.append(word)
+    #         else:
+    #             correct_words.append(word)
+    #     return ' '.join(correct_words)       
