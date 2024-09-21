@@ -2,10 +2,8 @@ import PyPDF2
 from docx import Document
 import spacy
 from pathlib import Path
-from datetime import datetime
 import os 
 import re
-from spacy.matcher import Matcher
 
 
 class ReadingFunctions:
@@ -78,24 +76,6 @@ class ReadingFunctions:
     def _process_text(self, text, file_data):
         docs = self.nlp(text)
         sentences = [sent.text.replace('\n', ' ').strip() for sent in docs.sents]
-        valid_sentences = [sentence for sentence in sentences if len(sentence) > 10]
+        valid_sentences = [sentence for sentence in sentences if len(sentence) > 15]
         file_data["page_sentence_amount"].append(len(valid_sentences))
         file_data["sentences"].extend(valid_sentences)
-
-    # #query spell handler
-    # def spell_checker(self,text):
-    #     spell = SpellChecker()
-    #     docs = self.nlp(text)
-    #     correct_words = []    
-    #     for token in docs:
-    #         word = token.text
-
-    #         if token.is_alpha:
-    #             if word.lower() in spell.unknown([word]):
-    #                 correction = spell.correction(word)
-    #                 correct_words.append(correction)
-    #             else:
-    #                 correct_words.append(word)
-    #         else:
-    #             correct_words.append(word)
-    #     return ' '.join(correct_words)       
