@@ -253,21 +253,25 @@ class FileProcessor:
                 return filtered_index
         else:
             return index_object
-        
+
+    def preprocessed_query(self, query):
+        return self.cf.query_generation(query=query)
+
     def search_index(
             self,
             user_query: np.ndarray
     ):
-        query_vector = self.ef.create_vector_embedding_from_query(query=user_query)
-        _, I = globals.index.search(query_vector, 5)
-        widen_sentences = self.widen_sentences(window_size=1, convergence_vector=I[0])
-        context = f"""Context1: {widen_sentences[0]}
-        Context2: {widen_sentences[1]}
-        Context3: {widen_sentences[2]}
-        Context4: {widen_sentences[3]}
-        Context5: {widen_sentences[4]}
-        """
-        resources = self.extract_resources(convergence_vector=I[0])
+        split_queries = user_query.split('\n')
+        index_list = []
+        for query in split_queries:
+            query_vector = self.ef.create_vector_embedding_from_query(query=query)
+            _, I = globals.index.search(query_vector, 3)
+            index_list.extend(I[0])
+        unique_index_list = list(set(index_list))
+        widen_sentences = self.widen_sentences(window_size=1, convergence_vector=unique_index_list)
+        context = self.create_dynamic_context(sentences=widen_sentences)
+
+        resources = self.extract_resources(convergence_vector=unique_index_list)
         resources_text = "- References in " + globals.selected_domain + ":"
         for i, resource in enumerate(resources):
             resources_text += textwrap.dedent(f"""
@@ -275,7 +279,7 @@ class FileProcessor:
                 - file Name: {resource["file_name"].split("/")[-1]}
                 - Page Number: {resource["page"]}
             """)
-        return self.cf.response_generation(query=user_query, context=context), resources_text
+        return self.cf.response_generation(query=globals.og_query, context=context), resources_text
     
     def file_change_to_memory(self, change: Dict):
         # Create embeddings
@@ -307,6 +311,12 @@ class FileProcessor:
         dimension = index.d
         all_vectors = np.empty((num_vectors, dimension), dtype=np.float32)
         return index.reconstruct_n(0, num_vectors, all_vectors)
+
+    def create_dynamic_context(self, sentences):
+        context = ""
+        for i, sentence in enumerate(sentences, 1):
+            context += f"Context{i}: {sentence}\n"
+        return context
 
     def widen_sentences(self, window_size: int, convergence_vector: np.ndarray):  
         widen_sentences = []

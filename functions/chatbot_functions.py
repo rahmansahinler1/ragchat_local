@@ -2,12 +2,32 @@ from openai import OpenAI
 from dotenv import load_dotenv
 from langdetect import detect
 import textwrap
+import globals
 
 
 class ChatbotFunctions:
     def __init__(self):
         load_dotenv()
         self.client = OpenAI()
+
+    def _prompt_for_query_generation(self, query, lang):
+        if lang == "en":
+            return textwrap.dedent(f"""      
+            I am building a project based on RAG method.
+            Projects purpose is taking the user query and doing semantic search on the database user provided.
+            To improve the semantic search, I want you to create 5 additional questions to be used in semantic search algorithm.
+            Create me 5 different and totally 6 with original query but semantically similar questions.
+                                   
+            User query: {query}
+
+            Create response as this template:
+            1. Original user query.
+            2. First semantically similar query.
+            3. Second semantically similar query.
+            4. Third semantically similar query.
+            5. Fourth semantically similar query.
+            6. Fifth semantically similar query.
+            """)
 
     def _prompt_with_context_builder(self, query, context, lang):
         if lang == "tr":
@@ -16,7 +36,7 @@ class ChatbotFunctions:
             Göreviniz, verilen bağlam pencerelerini analiz etmek ve kullanıcının sorgusu temelinde ilgili verileri çıkarmaktır.
 
             Talimatlar:
-            1. Size her biri 3 cümle içeren 5 bağlam penceresi verilecektir.
+            1. Size her biri birkaç cümle içeren bağlam penceresi verilecektir.
             2. Tüm bağlam pencerelerini dikkatle okuyun.
             3. Kullanıcının hangi özel bilgiyi aradığını anlamak için kullanıcının sorgusunu analiz edin.
             4. Bağlam pencerelerinden ilgili bilgileri arayın ve çıkarın.
@@ -26,8 +46,8 @@ class ChatbotFunctions:
 
             Aşağıdaki formatta yanıt verin:
             - Çıkarılan Bilgi: [Çıkarılan veriyi buraya yazın]
-            - Güven Düzeyi: [Yüksek/Orta/Düşük - bilginin metinde ne kadar açık bir şekilde belirtildiğine bağlı olarak]
             - Ek Bağlam: [Gerekirse, kısa bir açıklama veya bağlam sağlayın]
+            - Güven Düzeyi: [Yüksek/Orta/Düşük - bilginin metinde ne kadar açık bir şekilde belirtildiğine bağlı olarak]
 
             Yalnızca verilen bağlam pencerelerindeki bilgilere odaklanmayı unutmayın. Açıkça belirtilenlerin ötesinde harici bilgi eklemeyin veya varsayımlarda bulunmayın.
 
@@ -42,7 +62,7 @@ class ChatbotFunctions:
             Your task is to analyze the given context windows and extract relevant data based on the user's query.
 
             Instructions:
-            1. You will be provided with 5 context windows, each containing 3 sentences.
+            1. You will be provided with context windows, each containing several sentences.
             2. Carefully read all context windows.
             3. Analyze the user's query to understand what specific information they are looking for.
             4. Search for and extract the relevant information from the context windows.
@@ -52,6 +72,7 @@ class ChatbotFunctions:
 
             Respond in the following format:
             - Extracted Information: [Provide the extracted data here]
+            - Extra information: [Provide brief context or explanation]
             - Confidence: [High/Medium/Low - based on how clearly the information was stated in the text]
 
             Remember to focus solely on the information present in the provided context windows. Do not include external knowledge or make assumptions beyond what is explicitly stated.
@@ -66,7 +87,7 @@ class ChatbotFunctions:
     def response_generation(self, query, context):
         # Load chat model
         lang = self.detect_language(query=query)
-        prompt = self._prompt_with_context_builder(query, context, lang=lang)
+        prompt = self._prompt_with_context_builder(query=query, context=context, lang=lang)
         
         # Generate response
         response = self.client.chat.completions.create(
@@ -80,6 +101,23 @@ class ChatbotFunctions:
         # Extract response
         answer = response.choices[0].message.content.strip()
         return answer
+    
+    def query_generation(self, query):
+        lang = self.detect_language(query=query)
+        prompt = self._prompt_for_query_generation(query, lang=lang)
+        
+        # Generate queries
+        response = self.client.chat.completions.create(
+            model="gpt-3.5-turbo-0125",
+            messages=[
+                {"role": "system", "content": prompt},
+                {"role": "user", "content": query}
+            ],
+            temperature=0
+        )
+        # Extract queries
+        new_queries = response.choices[0].message.content.strip()
+        return new_queries
 
     def detect_language(self, query):
         lang = "en"

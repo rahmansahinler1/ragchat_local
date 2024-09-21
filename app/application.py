@@ -42,7 +42,7 @@ class App(tk.Tk):
         self.button_ask = tk.Button(
             self,
             image=self.button_ask_pic,
-            command=lambda: [self.generate_response()],
+            command=lambda: [self.generate_queries()],
             bd=0,
             bg="#222222",
             highlightthickness=0,
@@ -152,11 +152,17 @@ class App(tk.Tk):
             processor=self.processor
         )
 
-    def generate_response(self):
+    def generate_queries(self):
         if globals.index:
-            user_query = self.chatbox_ask.get("1.0", "end-1c")
-            self.display_message(message=user_query, sender="user")
+            query = self.chatbox_ask.get("1.0", "end-1c")
+            globals.og_query = query
+            self.display_message(message=query, sender="user")
             self.clear_input()
+            new_queries = self.processor.preprocessed_query(query=query)
+            self.generate_response(user_query= new_queries)
+
+    def generate_response(self, user_query):
+        if globals.index:
             response, resource_text = self.processor.search_index(user_query=user_query)
             answer = f"{response}\n{resource_text}"
             self.display_message(message=answer, sender="system")
@@ -180,7 +186,7 @@ class App(tk.Tk):
     
     def handle_enter(self, event):
         if globals.index:
-            self.generate_response()  
+            self.generate_queries()
             return "break"
         messagebox.showerror("Error!", "Please first select your resource folder in the button on the top right!")
         return "break"
