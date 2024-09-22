@@ -254,27 +254,32 @@ class FileProcessor:
         else:
             return index_object
 
-    def preprocessed_query(self, query):
+    def generate_additional_queries(self, query):
         return self.cf.query_generation(query=query)
 
     def search_index(
             self,
             user_query: np.ndarray
     ):
-        split_queries = user_query.split('\n')
-        globals.og_query = split_queries[0]
-        index_list = []
-        for query in split_queries:
-            if(len(query) < 10):
+        splitted_queries = user_query.split('\n')
+        original_query = splitted_queries[0]
+        index_set = set()
+        unique_index_list = []
+        for query in splitted_queries:
+            if(query=="\n" or query=="no response"):
                 continue
             else:
                 query_vector = self.ef.create_vector_embedding_from_query(query=query)
                 _, I = globals.index.search(query_vector, 3)
-                index_list.extend(I[0])
-        unique_index_list = list(set(index_list))
+                index_set.update(I[0])
+        try: 
+            unique_index_list = list(index_set)
+        except ValueError as e:
+            original_query = "Please provide meaningful query:"
+            print(f"{original_query: {e}}")
+            
         widen_sentences = self.widen_sentences(window_size=1, convergence_vector=unique_index_list)
         context = self.create_dynamic_context(sentences=widen_sentences)
-
         resources = self.extract_resources(convergence_vector=unique_index_list)
         resources_text = "- References in " + globals.selected_domain + ":"
         for i, resource in enumerate(resources):
@@ -283,7 +288,7 @@ class FileProcessor:
                 - file Name: {resource["file_name"].split("/")[-1]}
                 - Page Number: {resource["page"]}
             """)
-        return self.cf.response_generation(query=globals.og_query, context=context), resources_text
+        return self.cf.response_generation(query=original_query, context=context), resources_text
     
     def file_change_to_memory(self, change: Dict):
         # Create embeddings

@@ -12,12 +12,10 @@ class ChatbotFunctions:
 
     def _prompt_for_query_generation(self, query, lang):
         if lang == "en":
-            return textwrap.dedent(f"""      
-            I am building a project based on RAG method.
-            Projects purpose is taking the user query and doing semantic search on the database user provided.
+            return textwrap.dedent(f"""
             Check the user query for spelling errors, correct the errors and write the corrected query as appropriate to the below template.
-            To improve the semantic search, I want you to create 5 additional questions to be used in semantic search algorithm.
-            Create me 5 different and totally 6 with original query but semantically similar questions.
+            If the query does not contain a meaningful word, do return "no response". Otherwise, complete the following steps:
+            Create 5 different semantically similar questions based on the original query to be used in semantic search algorithm.
                                    
             User query: {query}
 

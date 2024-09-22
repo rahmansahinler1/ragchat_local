@@ -157,8 +157,10 @@ class App(tk.Tk):
             query = self.chatbox_ask.get("1.0", "end-1c")
             self.display_message(message=query, sender="user")
             self.clear_input()
-            new_queries = self.processor.preprocessed_query(query=query)
-            self.generate_response(user_query= new_queries)
+            new_queries = self.processor.generate_additional_queries(query=query)
+            self.generate_response(user_query=new_queries)
+        else:
+            messagebox.showerror("Error!", "Please first select your resource folder in the button on the top right!")
 
     def generate_response(self, user_query):
         if globals.index:

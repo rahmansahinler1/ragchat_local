@@ -6,13 +6,9 @@ __pycache__/
 
 # C extensions
 *.so
-# pdf files
 *.pdf
-#docx files
 *.docx
-#jupyter notabooks
 *.ipynb
-#csv
 *.csv
 # Distribution / packaging
 .Python
