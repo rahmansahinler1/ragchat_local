@@ -6,13 +6,10 @@ __pycache__/
 
 # C extensions
 *.so
-# pdf files
 *.pdf
-#docx files
 *.docx
-#jupyter notabooks
-*.ipynb
-#csv
+#jupyter notebooks
+#*.ipynb
 *.csv
 # Distribution / packaging
 .Python
@@ -21,7 +18,7 @@ develop-eggs/
 dist/
 downloads/
 eggs/
-.eggs/
+.eggs/x
 lib/
 lib64/
 parts/
