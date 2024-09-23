@@ -2,6 +2,8 @@ import PyPDF2
 from docx import Document
 import spacy
 from pathlib import Path
+from datetime import datetime
+import os 
 
 
 class ReadingFunctions:
@@ -14,7 +16,8 @@ class ReadingFunctions:
     def read_file(self, file_path: str):
         file_data = {
             "page_sentence_amount": [],
-            "sentences": []
+            "sentences": [],
+            "date" : []
         }
         # Open file
         path = Path(file_path)
@@ -23,16 +26,26 @@ class ReadingFunctions:
             if file_extension == '.pdf':
                 with path.open('rb') as file:
                     pdf_reader = PyPDF2.PdfReader(file)
+                    try:
+                        pdf_date = f"{pdf_reader.metadata.creation_date.year%2000}-{pdf_reader.metadata.creation_date.month}-{pdf_reader.metadata.creation_date.day}"
+                        file_data["date"].append(pdf_date)
+                    except TypeError as e:
+                        raise TypeError(f"PDF creation date could not extracted!: {e}")
                     for page in pdf_reader.pages:
                         page_text = page.extract_text()
                         self._process_text(page_text, file_data)
-            
             elif file_extension == '.docx':
                 doc = Document(path)
+                try:
+                    doc_date = f"{doc.core_properties.created.year%2000}-{doc.core_properties.created.month}-{doc.core_properties.created.day}"
+                    file_data["date"].append(doc_date)
+                except TypeError as e:
+                    raise TypeError(f"Doc creation date could not extracted!: {e}")
                 for para in doc.paragraphs:
                     self._process_text(para.text, file_data)
-            
             elif file_extension in ['.txt', '.rtf']:
+                txt_date = os.path.getctime(path)
+                file_data["date"].append(txt_date)
                 text = path.read_text(encoding='utf-8')
                 self._process_text(text, file_data)
             
