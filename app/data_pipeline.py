@@ -262,6 +262,7 @@ class FileProcessor:
             user_query: np.ndarray
     ):
         splitted_queries = user_query.split('\n')
+        splitted_queries = splitted_queries[:6]
         original_query = splitted_queries[0]
         index_set = set()
         unique_index_list = []
@@ -276,7 +277,7 @@ class FileProcessor:
             unique_index_list = list(index_set)
         except ValueError as e:
             original_query = "Please provide meaningful query:"
-            print(f"{original_query: {e}}")
+            print(f"{original_query, {e}}")
             
         widen_sentences = self.widen_sentences(window_size=1, convergence_vector=unique_index_list)
         context = self.create_dynamic_context(sentences=widen_sentences)

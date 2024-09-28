@@ -15,7 +15,7 @@ class ChatbotFunctions:
             return textwrap.dedent(f"""
             Check the user query for spelling errors, correct the errors and write the corrected query as appropriate to the below template.
             If the query does not contain a meaningful word, do return "no response". Otherwise, complete the following steps:
-            Create 5 different semantically similar questions based on the original query to be used in semantic search algorithm.
+            Create exactly 5 different semantically similar questions based on the user query to be used in semantic search algorithm.
                                    
             User query: {query}
 
