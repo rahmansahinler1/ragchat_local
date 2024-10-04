@@ -4,7 +4,9 @@ import spacy
 from pathlib import Path
 from datetime import datetime
 import os 
-
+import fitz
+import re
+import globals
 
 class ReadingFunctions:
     def __init__(self):
@@ -17,23 +19,56 @@ class ReadingFunctions:
         file_data = {
             "page_sentence_amount": [],
             "sentences": [],
-            "date" : []
+            "date": [],
+            "is_header": [],
+            "page_num": [],
+            "boost" : [],
         }
         # Open file
         path = Path(file_path)
         file_extension = path.suffix.lower()
         try:
             if file_extension == '.pdf':
-                with path.open('rb') as file:
-                    pdf_reader = PyPDF2.PdfReader(file)
+                with fitz.open(path) as file:
                     try:
-                        pdf_date = f"{pdf_reader.metadata.creation_date.year%2000}-{pdf_reader.metadata.creation_date.month}-{pdf_reader.metadata.creation_date.day}"
+                        pdf_date = f"{file.metadata.creation_date.year%2000}-{file.metadata.creation_date.month}-{file.metadata.creation_date.day}"
                         file_data["date"].append(pdf_date)
                     except TypeError as e:
                         raise TypeError(f"PDF creation date could not extracted!: {e}")
-                    for page in pdf_reader.pages:
-                        page_text = page.extract_text()
-                        self._process_text(page_text, file_data)
+                    for page_num in range(len(doc)):
+                        page = doc.load_page(page_num)
+                        block_text = page.get_text("blocks")
+                        blocks = page.get_text("dict")["blocks"]
+                        text_blocks = [block for block in blocks if block["type"] == 0]
+                        for i,block in enumerate(text_blocks):
+                            if "lines" in block and len(block["lines"]) >= 1 and len(block["lines"]) < 3:
+                                for line in block["lines"]:
+                                    for span in line["spans"]:
+                                        text = span["text"]
+                                        if span["size"] > 8 and (span["font"].find("Medi") >0 or span["font"].find("Bold") >0 or span["font"].find("B") >0) and len(text) > 3 and text[0].isupper():
+                                            file_data["sentences"].append(text)
+                                            file_data["is_header"].append(1)
+                                            file_data["page_num"].append(page_num+1)
+                                            file_data["boost"].append(0)
+                                        elif len(text) > 3:
+                                            file_data["sentences"].append(text)
+                                            file_data["is_header"].append(0)
+                                            file_data["page_num"].append(page_num+1)
+                                            file_data["boost"].append(0)
+                            elif "lines" in block:
+                                for sent_num in range(len(block_text[i][4].split('. '))):
+                                        sentence = re.split(r'(?<=[.!?])\s+', block_text[i][4])[sent_num].strip()
+                                        clean_sentence = self._process_regex(sentence)
+                                        if len(clean_sentence) > 15:
+                                            file_data["sentences"].append(clean_sentence)
+                                            file_data["is_header"].append(0)
+                                            file_data["page_num"].append(page_num + 1)
+                                            file_data["boost"].append(0)
+                        file_data["page_sentence_amount"] = len(file_data["sentences"])
+                    self._create_header_dict(file_data=file_data)
+                    #for page in pdf_reader.pages:
+                    #    page_text = page.extract_text()
+                    #    self._process_text(page_text, file_data)
             elif file_extension == '.docx':
                 doc = Document(path)
                 try:
@@ -58,6 +93,26 @@ class ReadingFunctions:
             print(f"Error reading file: {path}. Error: {str(e)}")
     
         return file_data
+
+    def _create_header_dict(self,file_data):
+        headers_list = {
+            "header" : [],
+            "sentence_index" : [],
+        }
+        for i,(sentence,is_header) in enumerate(zip(file_data["sentences"],file_data["is_header"])):
+            if is_header == 1:
+                headers_list["header"].append(sentence)
+                headers_list["sentence_index"].append(i)
+        globals.headers_list = headers_list
+    
+    def _process_regex(self,text):
+        clean_text = re.sub(r'(\b\w+)\s*\n\s*(\w+\b)',r'\1 \2',text)
+        clean_text = re.sub(r'(\w+)-\s+(\w+)', r'\1\2', clean_text)
+        clean_text = re.sub(r'[,()]\s*\n\s*(\w+)',r' \1',clean_text)
+        clean_text = re.sub(r'(\b\w+)\s*-\s*(\w+\b)',r'\1 \2',clean_text)
+        clean_text = re.sub(r'(\w+)\s*[-–]\s*(\w+)',r'\1\2',clean_text)
+        clean_text = clean_text.replace('\n','')
+        return clean_text
 
     def _process_text(self, text, file_data):
         docs = self.nlp(text)
