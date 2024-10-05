@@ -264,24 +264,31 @@ class FileProcessor:
         splitted_queries = user_query.split('\n')
         splitted_queries = splitted_queries[:6]
         original_query = splitted_queries[0]
-        index_set = set()
-        unique_index_list = []
+        dict_resource = {}
+        index_list = []
+        sorted_index_list = []
         for query in splitted_queries:
             if(query=="\n" or query=="no response"):
                 continue
             else:
                 query_vector = self.ef.create_vector_embedding_from_query(query=query)
-                _, I = globals.index.search(query_vector, 3)
-                index_set.update(I[0])
+                D, I = globals.index.search(query_vector, 3)
+                for j, index in enumerate(I[0][0:3]):
+                    if index in dict_resource:
+                        dict_resource[index].append(D[0][j])
+                    else:
+                        dict_resource[index] = [D[0][j]]
         try: 
-            unique_index_list = list(index_set)
+            index_list = list(dict_resource.keys())
         except ValueError as e:
             original_query = "Please provide meaningful query:"
             print(f"{original_query, {e}}")
-            
-        widen_sentences = self.widen_sentences(window_size=1, convergence_vector=unique_index_list)
+        dict_resource = self.sort_resources(resources_dict = dict_resource)
+        sorted_index_list = list(dict_resource.keys())
+
+        widen_sentences = self.widen_sentences(window_size=1, convergence_vector=sorted_index_list)
         context = self.create_dynamic_context(sentences=widen_sentences)
-        resources = self.extract_resources(convergence_vector=unique_index_list)
+        resources = self.extract_resources(convergence_vector=sorted_index_list)
         resources_text = "- References in " + globals.selected_domain + ":"
         for i, resource in enumerate(resources):
             resources_text += textwrap.dedent(f"""
@@ -327,6 +334,14 @@ class FileProcessor:
         for i, sentence in enumerate(sentences, 1):
             context += f"Context{i}: {sentence}\n"
         return context
+
+    def sort_resources(self, resources_dict):
+        for key, value in resources_dict.items():
+            value_mean = sum(value) / len(value)
+            value_coefficient = value_mean - len(value) * 0.0025
+            resources_dict[key].append(value_coefficient)
+        sorted_dict = dict(sorted(resources_dict.items(), key=lambda item: item[1][-1]))
+        return sorted_dict
 
     def widen_sentences(self, window_size: int, convergence_vector: np.ndarray):  
         widen_sentences = []

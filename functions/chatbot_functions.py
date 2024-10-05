@@ -62,12 +62,13 @@ class ChatbotFunctions:
 
             Instructions:
             1. You will be provided with context windows, each containing several sentences.
-            2. Carefully read all context windows.
-            3. Analyze the user's query to understand what specific information they are looking for.
-            4. Search for and extract the relevant information from the context windows.
-            5. If the requested information is not present in any of the context windows, state that clearly.
-            6. Present the extracted information in a clear and concise manner.
-            7. If appropriate, provide brief context or explanation for the extracted data.
+            2. The first context is the most important, and each subsequent context holds decreasing importance, with the last context being the least important.
+            3. Carefully read all context windows.
+            4. Analyze the user's query to understand what specific information they are looking for.
+            5. Search for and extract the relevant information from the context windows according to the hierarchy and ensure your response reflects this priority.
+            6. If the requested information is not present in any of the context windows, state that clearly.
+            7. Present the extracted information in a clear and concise manner.
+            8. If appropriate, provide brief context or explanation for the extracted data.
 
             Respond in the following format:
             - Extracted Information: [Provide the extracted data here]
