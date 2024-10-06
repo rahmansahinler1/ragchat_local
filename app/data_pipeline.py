@@ -227,7 +227,8 @@ class FileProcessor:
             self,
             index_object,
             date = None,
-            boost = None
+            boost = None,
+            convergence_vector = None
         ):
         shape = index_object["embeddings"].shape
         filtered_index = {
@@ -285,17 +286,27 @@ class FileProcessor:
                     except FileNotFoundError as e:
                             raise FileExistsError(f"Index file could not be found for filtering!: {e}")
 
-            for index in file_path_indexes:
-                try:
-                    sentence_start = sum(sum(page_sentences) for page_sentences in index_object["file_sentence_amount"][:index])
-                    sentence_end =  sentence_start + sum(index_object["file_sentence_amount"][index])
-                    
-                    filtered_index["file_path"].append(index_object["file_path"][i])
-                    filtered_index["file_sentence_amount"].append(index_object["file_sentence_amount"][i])
-                    filtered_index["date"].append(index_object["date"][i])
-
-                except FileNotFoundError as e:
-                    raise FileExistsError(f"Index file could not be found for filtering!: {e}")
+            for i in range(len(index_object["file_path"])):
+                sentence_start = sum(sum(page_sentences) for page_sentences in index_object["file_sentence_amount"][:i])
+                sentence_end =  sentence_start + sum(index_object["file_sentence_amount"][i])
+                if sum(index_object["boost"][sentence_start:sentence_end]) > 0:
+                    try:
+                        filtered_index["file_path"].append(index_object["file_path"][i])
+                        filtered_index["date"].append(index_object["date"][i])
+                        for sentence_num in convergence_vector:
+                            start = globals.headers_dict['sentence_index'][sentence_num]
+                            if globals.headers_dict['sentence_index'][sentence_num+1] < len(index_object['sentences']):
+                                end = globals.headers_dict['sentence_index'][sentence_num+1]
+                            else:
+                                end = len(index_object['boost'])
+                            page_list = list(set(index_object["page_num"][start:end]))
+                            for index in page_list:
+                                filtered_index["file_sentence_amount"].append(index_object["file_sentence_amount"][index])
+                            #TODO:Test the filter function
+                    except FileNotFoundError as e:
+                        raise FileExistsError(f"Index file could not be found for filtering!: {e}")
+            else:
+                return filtered_index
         else:
             return index_object
 
@@ -398,7 +409,7 @@ class FileProcessor:
             for i in range(start,end):
                 index_object['boost'][i] = 1
 
-        boosted_index = self.index_filter(index_object=index_object,boost=True)
+        boosted_index = self.index_filter(index_object=index_object,boost=True,convergence_vector=I[0])
 
     # Extract headers from the index
     def header_extract_index(self,index_object):

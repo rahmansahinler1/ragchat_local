@@ -33,6 +33,7 @@ class ReadingFunctions:
                     try:
                         pdf_date = f"{file.metadata["creationDate"][4:6]}-{file.metadata["creationDate"][6:8]}-{file.metadata["creationDate"][9:11]}"
                         file_data["date"].append(pdf_date)
+                        previous_sentence_count = 0
                     except TypeError as e:
                         raise TypeError(f"PDF creation date could not extracted!: {e}")
                     for page_num in range(len(file)):
@@ -67,7 +68,10 @@ class ReadingFunctions:
                                             file_data["page_num"].append(page_num + 1)
                                             file_data["block_num"].append(i)
                                             file_data["boost"].append(0)
-                        file_data["page_sentence_amount"].append(len(file_data["sentences"]))
+                        current_sentence_count = len(file_data["sentences"])
+                        sentences_in_this_page = current_sentence_count - previous_sentence_count
+                        file_data["page_sentence_amount"].append(sentences_in_this_page)
+                        previous_sentence_count = current_sentence_count
             elif file_extension == '.docx':
                 doc = Document(path)
                 try:
@@ -100,11 +104,12 @@ class ReadingFunctions:
         clean_text = re.sub(r'(\b\w+)\s*-\s*(\w+\b)',r'\1 \2',clean_text)
         clean_text = re.sub(r'(\w+)\s*[-–]\s*(\w+)',r'\1\2',clean_text)
         clean_text = clean_text.replace('\n','')
+        clean_text = clean_text.replace(' \n','')
         return clean_text
     
-    # def _process_text(self, text, file_data):
-    #    docs = self.nlp(text)
-    #    sentences = [sent.text.replace('\n', ' ').strip() for sent in docs.sents]
-    #    valid_sentences = [sentence for sentence in sentences if len(sentence) > 15]
-    #    file_data["page_sentence_amount"].append(len(valid_sentences))
-    #    file_data["sentences"].extend(valid_sentences)
+    def _process_text(self, text, file_data):
+       docs = self.nlp(text)
+       sentences = [sent.text.replace('\n', ' ').strip() for sent in docs.sents]
+       valid_sentences = [sentence for sentence in sentences if len(sentence) > 15]
+       file_data["page_sentence_amount"].append(len(valid_sentences))
+       file_data["sentences"].extend(valid_sentences)
