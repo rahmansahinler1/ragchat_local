@@ -158,6 +158,7 @@ class App(tk.Tk):
             self.display_message(message=query, sender="user")
             self.clear_input()
             new_queries = self.processor.generate_additional_queries(query=query)
+            self.processor.search_header_index(query=query,db_folder_path=self.db_folder_path)
             self.generate_response(user_query=new_queries)
         else:
             messagebox.showerror("Error!", "Please first select your resource folder in the button on the top right!")

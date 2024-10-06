@@ -6,7 +6,6 @@ from datetime import datetime
 import os 
 import fitz
 import re
-import globals
 
 class ReadingFunctions:
     def __init__(self):
@@ -22,6 +21,7 @@ class ReadingFunctions:
             "date": [],
             "is_header": [],
             "page_num": [],
+            "block_num": [],
             "boost" : [],
         }
         # Open file
@@ -31,12 +31,12 @@ class ReadingFunctions:
             if file_extension == '.pdf':
                 with fitz.open(path) as file:
                     try:
-                        pdf_date = f"{file.metadata.creation_date.year%2000}-{file.metadata.creation_date.month}-{file.metadata.creation_date.day}"
+                        pdf_date = f"{file.metadata["creationDate"][4:6]}-{file.metadata["creationDate"][6:8]}-{file.metadata["creationDate"][9:11]}"
                         file_data["date"].append(pdf_date)
                     except TypeError as e:
                         raise TypeError(f"PDF creation date could not extracted!: {e}")
-                    for page_num in range(len(doc)):
-                        page = doc.load_page(page_num)
+                    for page_num in range(len(file)):
+                        page = file.load_page(page_num)
                         block_text = page.get_text("blocks")
                         blocks = page.get_text("dict")["blocks"]
                         text_blocks = [block for block in blocks if block["type"] == 0]
@@ -49,11 +49,13 @@ class ReadingFunctions:
                                             file_data["sentences"].append(text)
                                             file_data["is_header"].append(1)
                                             file_data["page_num"].append(page_num+1)
+                                            file_data["block_num"].append(i)
                                             file_data["boost"].append(0)
                                         elif len(text) > 3:
                                             file_data["sentences"].append(text)
                                             file_data["is_header"].append(0)
                                             file_data["page_num"].append(page_num+1)
+                                            file_data["block_num"].append(i)
                                             file_data["boost"].append(0)
                             elif "lines" in block:
                                 for sent_num in range(len(block_text[i][4].split('. '))):
@@ -63,12 +65,9 @@ class ReadingFunctions:
                                             file_data["sentences"].append(clean_sentence)
                                             file_data["is_header"].append(0)
                                             file_data["page_num"].append(page_num + 1)
+                                            file_data["block_num"].append(i)
                                             file_data["boost"].append(0)
-                        file_data["page_sentence_amount"] = len(file_data["sentences"])
-                    self._create_header_dict(file_data=file_data)
-                    #for page in pdf_reader.pages:
-                    #    page_text = page.extract_text()
-                    #    self._process_text(page_text, file_data)
+                        file_data["page_sentence_amount"].append(len(file_data["sentences"]))
             elif file_extension == '.docx':
                 doc = Document(path)
                 try:
@@ -93,17 +92,6 @@ class ReadingFunctions:
             print(f"Error reading file: {path}. Error: {str(e)}")
     
         return file_data
-
-    def _create_header_dict(self,file_data):
-        headers_list = {
-            "header" : [],
-            "sentence_index" : [],
-        }
-        for i,(sentence,is_header) in enumerate(zip(file_data["sentences"],file_data["is_header"])):
-            if is_header == 1:
-                headers_list["header"].append(sentence)
-                headers_list["sentence_index"].append(i)
-        globals.headers_list = headers_list
     
     def _process_regex(self,text):
         clean_text = re.sub(r'(\b\w+)\s*\n\s*(\w+\b)',r'\1 \2',text)
@@ -113,10 +101,10 @@ class ReadingFunctions:
         clean_text = re.sub(r'(\w+)\s*[-–]\s*(\w+)',r'\1\2',clean_text)
         clean_text = clean_text.replace('\n','')
         return clean_text
-
-    def _process_text(self, text, file_data):
-        docs = self.nlp(text)
-        sentences = [sent.text.replace('\n', ' ').strip() for sent in docs.sents]
-        valid_sentences = [sentence for sentence in sentences if len(sentence) > 15]
-        file_data["page_sentence_amount"].append(len(valid_sentences))
-        file_data["sentences"].extend(valid_sentences)
+    
+    # def _process_text(self, text, file_data):
+    #    docs = self.nlp(text)
+    #    sentences = [sent.text.replace('\n', ' ').strip() for sent in docs.sents]
+    #    valid_sentences = [sentence for sentence in sentences if len(sentence) > 15]
+    #    file_data["page_sentence_amount"].append(len(valid_sentences))
+    #    file_data["sentences"].extend(valid_sentences)

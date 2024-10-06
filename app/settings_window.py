@@ -199,7 +199,7 @@ class Window(tk.Toplevel):
             return ""
         else:
             return selected_date
-    
+
     def on_close(self):
         if globals.selected_domain:
             index_path = self.db_folder_path  / "indexes" / (globals.selected_domain + ".pickle")
@@ -210,6 +210,7 @@ class Window(tk.Toplevel):
                 globals.files = index_object_filtered["file_path"]
                 globals.file_sentence_amount = index_object_filtered["file_sentence_amount"]
                 globals.sentences = index_object_filtered["sentences"]
+                globals.headers_dict = self.processor.header_extract_index(index_object_filtered)
             except FileNotFoundError:
                 messagebox.showerror("Error!", "No file registered database under this domain. Please insert one and click <run file detection> or run the ragchat again!")
         else:
