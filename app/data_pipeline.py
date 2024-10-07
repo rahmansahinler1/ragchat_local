@@ -243,6 +243,7 @@ class FileProcessor:
                 "embeddings": np.empty(shape=shape)
         }
         file_path_indexes = []
+        page_list = []
         if date:
             date = datetime.strptime(date,"%m/%d/%y")
             for i in range(len(index_object["file_path"])):
@@ -299,9 +300,11 @@ class FileProcessor:
                                 end = globals.headers_dict['sentence_index'][sentence_num+1]
                             else:
                                 end = len(index_object['boost'])
-                            page_list = list(set(index_object["page_num"][start:end]))
-                            for index in page_list:
-                                filtered_index["file_sentence_amount"].append(index_object["file_sentence_amount"][i][index])
+
+                            page_list.extend(list(set(index_object["page_num"][start:end])))
+                            sorted_page_list = list(set(page_list))
+                        for index in sorted_page_list:
+                            filtered_index["file_sentence_amount"].append(index_object["file_sentence_amount"][i][index])
                     except FileNotFoundError as e:
                         raise FileExistsError(f"Index file could not be found for filtering!: {e}")
             else:
@@ -321,27 +324,39 @@ class FileProcessor:
         splitted_queries = splitted_queries[:6]
         original_query = splitted_queries[0]
         dict_resource = {}
+        boosted_dict_resource = {}
         index_list = []
+        boosted_index_list = []
         sorted_index_list = []
         for query in splitted_queries:
             if(query=="\n" or query=="no response"):
                 continue
             else:
                 query_vector = self.ef.create_vector_embedding_from_query(query=query)
-                for index in faiss_index_list:
+                for i,index in enumerate(faiss_index_list):
                     D, I = index.search(query_vector, 3)
-                    for j, indexes in enumerate(I[0][0:3]):
-                        if indexes in dict_resource:
-                            dict_resource[indexes].append(D[0][j])
-                        else:
-                            dict_resource[indexes] = [D[0][j]]
-        try: 
+                    if i == 0:
+                        for j, indexes in enumerate(I[0][0:3]):
+                            if indexes in dict_resource:
+                                dict_resource[indexes].append(D[0][j])
+                            else:
+                                dict_resource[indexes] = [D[0][j]]
+                    else:
+                        for j, indexes in enumerate(I[0][0:3]):
+                            if indexes in boosted_dict_resource:
+                                boosted_dict_resource[indexes].append(D[0][j])
+                            else:
+                                boosted_dict_resource[indexes] = [D[0][j]]
+        try:
             index_list = list(dict_resource.keys())
+            boosted_index_list = list(boosted_dict_resource.keys())
         except ValueError as e:
             original_query = "Please provide meaningful query:"
             print(f"{original_query, {e}}")
         dict_resource = self.sort_resources(resources_dict = dict_resource)
+        boosted_dict_resource = self.sort_resources(resources_dict = boosted_dict_resource)
         sorted_index_list = list(dict_resource.keys())
+        boosted_index_list = list(boosted_dict_resource.keys())
 
         widen_sentences = self.widen_sentences(window_size=1, convergence_vector=sorted_index_list)
         context = self.create_dynamic_context(sentences=widen_sentences)
