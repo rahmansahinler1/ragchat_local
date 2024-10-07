@@ -153,18 +153,18 @@ class App(tk.Tk):
         )
 
     def generate_queries(self):
-        if globals.index:
+        if len(globals.index_list)>0:
             query = self.chatbox_ask.get("1.0", "end-1c")
             self.display_message(message=query, sender="user")
             self.clear_input()
             new_queries = self.processor.generate_additional_queries(query=query)
-            self.processor.search_header_index(query=query,db_folder_path=self.db_folder_path)
             self.generate_response(user_query=new_queries)
         else:
             messagebox.showerror("Error!", "Please first select your resource folder in the button on the top right!")
 
     def generate_response(self, user_query):
-        if globals.index:
+        if len(globals.index_list)>0:
+            self.processor.search_header_index(query=user_query,db_folder_path=self.db_folder_path)
             response, resource_text = self.processor.search_index(user_query=user_query)
             answer = f"{response}\n{resource_text}"
             self.display_message(message=answer, sender="system")
@@ -187,12 +187,11 @@ class App(tk.Tk):
         self.chatbox_response.update()
     
     def handle_enter(self, event):
-        if globals.index:
+        if len(globals.index_list)>0:
             self.generate_queries()
             return "break"
         messagebox.showerror("Error!", "Please first select your resource folder in the button on the top right!")
         return "break"
-
 
     def handle_shift_enter(self, event):
         return

@@ -99,7 +99,7 @@ class FileProcessor:
             index = self.indf.create_flat_index(embeddings=embeddings)
         return index
 
-    
+
     def index_insert(
         self,
         changes: List[Dict[str, str]],
@@ -170,7 +170,7 @@ class FileProcessor:
                     cumulative_index = sum(value["file_sentence_amount"][i])
                 # Update sentence amounts list
                 for i, file_index in enumerate(file_path_indexes):
-                    index_object["file_sentence_amount"][file_index] = value["file_sentence_amount"][i]            
+                    index_object["file_sentence_amount"][file_index] = value["file_sentence_amount"][i]
                 # Save index object
                 self.indf.save_index(
                     index_object=index_object,
@@ -314,7 +314,8 @@ class FileProcessor:
 
     def search_index(
             self,
-            user_query: np.ndarray
+            user_query: np.ndarray,
+            faiss_index_list = globals.index_list
     ):
         splitted_queries = user_query.split('\n')
         splitted_queries = splitted_queries[:6]
@@ -327,12 +328,13 @@ class FileProcessor:
                 continue
             else:
                 query_vector = self.ef.create_vector_embedding_from_query(query=query)
-                D, I = globals.index.search(query_vector, 3)
-                for j, index in enumerate(I[0][0:3]):
-                    if index in dict_resource:
-                        dict_resource[index].append(D[0][j])
-                    else:
-                        dict_resource[index] = [D[0][j]]
+                for index in faiss_index_list:
+                    D, I = index.search(query_vector, 3)
+                    for j, indexes in enumerate(I[0][0:3]):
+                        if indexes in dict_resource:
+                            dict_resource[indexes].append(D[0][j])
+                        else:
+                            dict_resource[indexes] = [D[0][j]]
         try: 
             index_list = list(dict_resource.keys())
         except ValueError as e:
@@ -340,7 +342,7 @@ class FileProcessor:
             print(f"{original_query, {e}}")
         dict_resource = self.sort_resources(resources_dict = dict_resource)
         sorted_index_list = list(dict_resource.keys())
-            
+
         widen_sentences = self.widen_sentences(window_size=1, convergence_vector=sorted_index_list)
         context = self.create_dynamic_context(sentences=widen_sentences)
         resources = self.extract_resources(convergence_vector=sorted_index_list)
@@ -352,7 +354,7 @@ class FileProcessor:
                 - Page Number: {resource["page"]}
             """)
         return self.cf.response_generation(query=original_query, context=context), resources_text
-    
+
     def file_change_to_memory(self, change: Dict):
         # Create embeddings
         file_data = self.rf.read_file(file_path=change["file_path"])
@@ -396,7 +398,7 @@ class FileProcessor:
         index_object = self.indf.load_index(index_path=index_path)
         query_vector = self.ef.create_vector_embedding_from_query(query=query)
         header_embeddings = self.ef.create_vector_embeddings_from_sentences(globals.headers_dict["header"])
-        header_index = self.indf.create_flat_index(header_embeddings)
+        header_index = self.create_index(header_embeddings)
 
         _,I = header_index.search(query_vector,10)
         for sentence_num in I[0]:
@@ -409,6 +411,7 @@ class FileProcessor:
                 index_object['boost'][i] = 1
 
         boosted_index = self.index_filter(index_object=index_object,boost=True,convergence_vector=I[0])
+        globals.index_list.append(self.create_index(boosted_index["embeddings"]))
 
     # Extract headers from the index
     def header_extract_index(self,index_object):
