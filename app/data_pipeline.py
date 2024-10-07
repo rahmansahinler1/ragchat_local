@@ -277,11 +277,11 @@ class FileProcessor:
             for i in range(len(index_object["boost"])):
                 if index_object["boost"][i] == 1:
                     try:
-                        filtered_index["sentences"].extend(index_object["sentences"][i])
-                        filtered_index["is_header"].extend(index_object["is_header"][i])
-                        filtered_index["page_num"].extend(index_object["page_num"][i])
-                        filtered_index["block_num"].extend(index_object["block_num"][i])
-                        filtered_index["boost"].extend(index_object["boost"][i])
+                        filtered_index["sentences"].append(index_object["sentences"][i])
+                        filtered_index["is_header"].append(index_object["is_header"][i])
+                        filtered_index["page_num"].append(index_object["page_num"][i])
+                        filtered_index["block_num"].append(index_object["block_num"][i])
+                        filtered_index["boost"].append(index_object["boost"][i])
                         filtered_index["embeddings"] = np.vstack((index_object["embeddings"][i],filtered_index["embeddings"]))
                     except FileNotFoundError as e:
                             raise FileExistsError(f"Index file could not be found for filtering!: {e}")
@@ -301,8 +301,7 @@ class FileProcessor:
                                 end = len(index_object['boost'])
                             page_list = list(set(index_object["page_num"][start:end]))
                             for index in page_list:
-                                filtered_index["file_sentence_amount"].append(index_object["file_sentence_amount"][index])
-                            #TODO:Test the filter function
+                                filtered_index["file_sentence_amount"].append(index_object["file_sentence_amount"][i][index])
                     except FileNotFoundError as e:
                         raise FileExistsError(f"Index file could not be found for filtering!: {e}")
             else:
