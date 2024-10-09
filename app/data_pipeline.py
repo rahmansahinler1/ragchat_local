@@ -329,7 +329,6 @@ class FileProcessor:
         original_query = splitted_queries[0]
         dict_resource = {}
         index_list = []
-        sorted_index_list = []
         for query in splitted_queries:
             if(query=="\n" or query=="no response"):
                 continue
@@ -407,12 +406,12 @@ class FileProcessor:
 
         boosted_index = self.index_filter(index_object=index_object,boost=True,convergence_vector=I[0])
         globals.boosted_index = self.create_index(boosted_index["embeddings"])
-        boosted_index = self.search_index(user_query=query, index=globals.boosted_index)
+        boosted_index_dict = self.search_index(user_query=query, index=globals.boosted_index)
         
-        return boosted_index
+        return boosted_index_dict
 
     # Extract headers from the index
-    def header_extract_index(self,index_object):
+    def extract_header(self,index_object):
         headers_list = {
             "header" : [],
             "sentence_index" : [],
@@ -423,7 +422,8 @@ class FileProcessor:
                 headers_list["sentence_index"].append(i)
         return headers_list
     
-    def search_result(self,user_query,index_search_list : dict,boosted_search_list : dict):
+    # Create context from search outputs
+    def create_context_resource(self,user_query,index_search_list : dict,boosted_search_list : dict):
         full_sentences = []
         original_query = user_query.split('\n')[0]
 
@@ -441,7 +441,6 @@ class FileProcessor:
 
         widen_sentences = self.widen_sentences(window_size=1, convergence_vector=standart_index_list, sentences=globals.sentences)
         boosted_widen_sentences = self.widen_sentences(window_size=1, convergence_vector=boosted_index_list, sentences=globals.boosted_sentences)
-        
         full_sentences.extend(widen_sentences)
         full_sentences.extend(boosted_widen_sentences)
 

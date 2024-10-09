@@ -52,7 +52,7 @@ class ReadingFunctions:
                                             file_data["page_num"].append(page_num+1)
                                             file_data["block_num"].append(i)
                                             file_data["boost"].append(0)
-                                        elif len(text) > 3:
+                                        elif len(text) > 15:
                                             file_data["sentences"].append(text)
                                             file_data["is_header"].append(0)
                                             file_data["page_num"].append(page_num+1)
