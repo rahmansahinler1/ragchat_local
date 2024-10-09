@@ -62,7 +62,7 @@ class FileDetector:
             else:
                 changes["insert"].append({"file_path": data["file_path"], "date_modified": data["date_modified"]})
                 memory_data.append(data)
-        
+
         # Check for deletion
         for i, data in enumerate(memory_data):
             if data not in current_file_data:
@@ -286,7 +286,7 @@ class FileProcessor:
                         filtered_index["embeddings"] = np.vstack((index_object["embeddings"][i],filtered_index["embeddings"]))
                     except FileNotFoundError as e:
                             raise FileExistsError(f"Index file could not be found for filtering!: {e}")
-
+            globals.boosted_sentences = filtered_index["sentences"]
             for i in range(len(index_object["file_path"])):
                 sentence_start = sum(sum(page_sentences) for page_sentences in index_object["file_sentence_amount"][:i])
                 sentence_end =  sentence_start + sum(index_object["file_sentence_amount"][i])
@@ -294,16 +294,20 @@ class FileProcessor:
                     try:
                         filtered_index["file_path"].append(index_object["file_path"][i])
                         filtered_index["date"].append(index_object["date"][i])
+
                         for sentence_num in convergence_vector:
                             start = globals.headers_dict['sentence_index'][sentence_num]
-                            if globals.headers_dict['sentence_index'][sentence_num+1] < len(index_object['sentences']):
+                            if sentence_num < len(globals.headers_dict['sentence_index']) - 1:
                                 end = globals.headers_dict['sentence_index'][sentence_num+1]
                             else:
                                 end = len(index_object['boost'])
 
-                            page_list.extend(list(set(index_object["page_num"][start:end])))
-                            sorted_page_list = list(set(page_list))
-                        for index in sorted_page_list:
+                            pages_in_range = index_object["page_num"][start:end]
+                            valid_pages = [p - 1 for p in pages_in_range if p > 0 and p <= len(index_object["file_sentence_amount"][i])]
+                            page_list.extend(valid_pages)
+
+                        uniqe_page_list = list(dict.fromkeys(page_list))
+                        for index in uniqe_page_list:
                             filtered_index["file_sentence_amount"].append(index_object["file_sentence_amount"][i][index])
                     except FileNotFoundError as e:
                         raise FileExistsError(f"Index file could not be found for filtering!: {e}")
@@ -318,57 +322,32 @@ class FileProcessor:
     def search_index(
             self,
             user_query: np.ndarray,
-            faiss_index_list = globals.index_list
+            index 
     ):
         splitted_queries = user_query.split('\n')
         splitted_queries = splitted_queries[:6]
         original_query = splitted_queries[0]
         dict_resource = {}
-        boosted_dict_resource = {}
         index_list = []
-        boosted_index_list = []
         sorted_index_list = []
         for query in splitted_queries:
             if(query=="\n" or query=="no response"):
                 continue
             else:
                 query_vector = self.ef.create_vector_embedding_from_query(query=query)
-                for i,index in enumerate(faiss_index_list):
-                    D, I = index.search(query_vector, 3)
-                    if i == 0:
-                        for j, indexes in enumerate(I[0][0:3]):
-                            if indexes in dict_resource:
-                                dict_resource[indexes].append(D[0][j])
-                            else:
-                                dict_resource[indexes] = [D[0][j]]
+                D, I = index.search(query_vector, 3)
+                for j, indexes in enumerate(I[0][0:3]):
+                    if indexes in dict_resource:
+                        dict_resource[indexes].append(D[0][j])
                     else:
-                        for j, indexes in enumerate(I[0][0:3]):
-                            if indexes in boosted_dict_resource:
-                                boosted_dict_resource[indexes].append(D[0][j])
-                            else:
-                                boosted_dict_resource[indexes] = [D[0][j]]
+                        dict_resource[indexes] = [D[0][j]]
         try:
             index_list = list(dict_resource.keys())
-            boosted_index_list = list(boosted_dict_resource.keys())
         except ValueError as e:
             original_query = "Please provide meaningful query:"
             print(f"{original_query, {e}}")
-        dict_resource = self.sort_resources(resources_dict = dict_resource)
-        boosted_dict_resource = self.sort_resources(resources_dict = boosted_dict_resource)
-        sorted_index_list = list(dict_resource.keys())
-        boosted_index_list = list(boosted_dict_resource.keys())
 
-        widen_sentences = self.widen_sentences(window_size=1, convergence_vector=sorted_index_list)
-        context = self.create_dynamic_context(sentences=widen_sentences)
-        resources = self.extract_resources(convergence_vector=sorted_index_list)
-        resources_text = "- References in " + globals.selected_domain + ":"
-        for i, resource in enumerate(resources):
-            resources_text += textwrap.dedent(f"""
-                {i+1}
-                - file Name: {resource["file_name"].split("/")[-1]}
-                - Page Number: {resource["page"]}
-            """)
-        return self.cf.response_generation(query=original_query, context=context), resources_text
+        return dict_resource
 
     def file_change_to_memory(self, change: Dict):
         # Create embeddings
@@ -410,15 +389,16 @@ class FileProcessor:
         except FileNotFoundError as e:
             raise FileExistsError(f"Index file could not be found for header search!: {e}")
 
+        original_query = query.split('\n')[0]
         index_object = self.indf.load_index(index_path=index_path)
-        query_vector = self.ef.create_vector_embedding_from_query(query=query)
+        query_vector = self.ef.create_vector_embedding_from_query(query=original_query)
         header_embeddings = self.ef.create_vector_embeddings_from_sentences(globals.headers_dict["header"])
         header_index = self.create_index(header_embeddings)
 
         _,I = header_index.search(query_vector,10)
         for sentence_num in I[0]:
             start = globals.headers_dict['sentence_index'][sentence_num]
-            if globals.headers_dict['sentence_index'][sentence_num+1] < len(index_object['sentences']):
+            if sentence_num < len(globals.headers_dict['sentence_index']) - 1:
                 end = globals.headers_dict['sentence_index'][sentence_num+1]
             else:
                 end = len(index_object['boost'])
@@ -426,7 +406,10 @@ class FileProcessor:
                 index_object['boost'][i] = 1
 
         boosted_index = self.index_filter(index_object=index_object,boost=True,convergence_vector=I[0])
-        globals.index_list.append(self.create_index(boosted_index["embeddings"]))
+        globals.boosted_index = self.create_index(boosted_index["embeddings"])
+        boosted_index = self.search_index(user_query=query, index=globals.boosted_index)
+        
+        return boosted_index
 
     # Extract headers from the index
     def header_extract_index(self,index_object):
@@ -439,27 +422,61 @@ class FileProcessor:
                 headers_list["header"].append(sentence)
                 headers_list["sentence_index"].append(i)
         return headers_list
+    
+    def search_result(self,user_query,index_search_list : dict,boosted_search_list : dict):
+        full_sentences = []
+        original_query = user_query.split('\n')[0]
+
+        standart = self.sort_resources(resources_dict = index_search_list)
+        boosted = self.sort_resources(resources_dict = boosted_search_list)
+
+        for key,value in boosted.items():
+            boosted[key] = value - (value*0.05)
+
+        #combined_list = standart | boosted
+        #sorted_combined_list = dict(sorted(combined_list.items(), key=lambda item: item[1]))
+
+        standart_index_list = list(standart.keys())
+        boosted_index_list = list(boosted.keys())
+
+        widen_sentences = self.widen_sentences(window_size=1, convergence_vector=standart_index_list, sentences=globals.sentences)
+        boosted_widen_sentences = self.widen_sentences(window_size=1, convergence_vector=boosted_index_list, sentences=globals.boosted_sentences)
+        
+        full_sentences.extend(widen_sentences)
+        full_sentences.extend(boosted_widen_sentences)
+
+        context = self.create_dynamic_context(sentences=full_sentences)
+        resources = self.extract_resources(convergence_vector=standart_index_list)
+        resources_text = "- References in " + globals.selected_domain + ":"
+        for i, resource in enumerate(resources):
+            resources_text += textwrap.dedent(f"""
+                {i+1}
+                - file Name: {resource["file_name"].split("/")[-1]}
+                - Page Number: {resource["page"]}
+            """)
+        return self.cf.response_generation(query=original_query, context=context), resources_text
 
     def create_dynamic_context(self, sentences):
         context = ""
         for i, sentence in enumerate(sentences, 1):
             context += f"Context{i}: {sentence}\n"
         return context
-    
+
     def sort_resources(self, resources_dict):
         for key, value in resources_dict.items():
             value_mean = sum(value) / len(value)
             value_coefficient = value_mean - len(value) * 0.0025
             resources_dict[key].append(value_coefficient)
         sorted_dict = dict(sorted(resources_dict.items(), key=lambda item: item[1][-1]))
-        return sorted_dict
+        result = {k: v[-1] for k, v in sorted_dict.items()}
+        return result
 
-    def widen_sentences(self, window_size: int, convergence_vector: np.ndarray):  
+    def widen_sentences(self, window_size: int, convergence_vector: np.ndarray, sentences):  
         widen_sentences = []
         for index in convergence_vector:
             start = max(0, index - window_size)
-            end = min(len(globals.sentences) - 1, index + window_size)
-            widen_sentences.append(f"{globals.sentences[start]} {globals.sentences[index]} {globals.sentences[end]}")
+            end = min(len(sentences) - 1, index + window_size)
+            widen_sentences.append(f"{sentences[start]} {sentences[index]} {sentences[end]}")
         return widen_sentences
 
     def extract_resources(self, convergence_vector: np.ndarray):
@@ -482,4 +499,4 @@ class FileProcessor:
 
     def clean_processor(self):
         self.change_dict = {}
-    
+

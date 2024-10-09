@@ -206,7 +206,7 @@ class Window(tk.Toplevel):
             try:
                 index_object = self.processor.indf.load_index(index_path=index_path)
                 index_object_filtered = self.processor.index_filter(index_object,date = self.filter_date())
-                globals.index_list.append(self.processor.create_index(embeddings=index_object_filtered["embeddings"]))
+                globals.index = self.processor.create_index(embeddings=index_object_filtered["embeddings"])
                 globals.files = index_object_filtered["file_path"]
                 globals.file_sentence_amount = index_object_filtered["file_sentence_amount"]
                 globals.sentences = index_object_filtered["sentences"]
