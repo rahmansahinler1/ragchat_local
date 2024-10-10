@@ -378,8 +378,10 @@ class FileProcessor:
         file_header_index = self.index_filter(index_object=index_object,file_list = unique_list)
         index = self.create_index(file_header_index["embeddings"])
         globals.index = index
+        globals.files = file_header_index["file_path"]
+        globals.file_sentence_amount = file_header_index["file_sentence_amount"]
+        globals.sentences = file_header_index["sentences"]
 
-        return globals.index
 
     def extract_embeddings_from_index(self, index):
         num_vectors = index.ntotal
