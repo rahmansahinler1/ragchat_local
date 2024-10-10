@@ -372,7 +372,7 @@ class FileProcessor:
 
         D,I = file_header_index.search(query_vector,2)
         for i,index in enumerate(I[0]):
-            if D[0][i] < 0.5:
+            if D[0][i] < 0.40:
                 file_list.append(index_object["file_path"][index])
         unique_list = list(dict.fromkeys(file_list))
         file_header_index = self.index_filter(index_object=index_object,file_list = unique_list)
