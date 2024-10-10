@@ -4,6 +4,7 @@ import spacy
 from pathlib import Path
 from datetime import datetime
 import os 
+import fitz
 
 
 class ReadingFunctions:
@@ -17,7 +18,8 @@ class ReadingFunctions:
         file_data = {
             "page_sentence_amount": [],
             "sentences": [],
-            "date" : []
+            "date" : [],
+            "file_header" : [],
         }
         # Open file
         path = Path(file_path)
@@ -65,3 +67,30 @@ class ReadingFunctions:
         valid_sentences = [sentence for sentence in sentences if len(sentence) > 15]
         file_data["page_sentence_amount"].append(len(valid_sentences))
         file_data["sentences"].extend(valid_sentences)
+
+    # Extract files first page header  
+    def _extract_file_header(self, file_path, file_data):
+        path = Path(file_path)
+        file_extension = path.suffix.lower()
+        full_text = ''
+        try:
+            if file_extension == '.pdf':
+                doc = fitz.open(path)
+                page = doc.load_page(0)
+                blocks = page.get_text("dict")["blocks"]
+                text_blocks = [block for block in blocks if block["type"] == 0]
+                for block in text_blocks:
+                        for line in block["lines"]:
+                            for span in line["spans"]:
+                                text = span["text"]
+                                if span["size"] > 3 and (span["font"].find("Medi") >0 or span["font"].find("Bold") >0 or span["font"].find("B") >0) and len(text) > 3:
+                                    full_text += text + ' '
+                file_data["file_header"].append(full_text)
+            elif file_extension == '.docx':
+                doc = Document(path)
+                for para in doc.paragraphs:
+                    if para.style.name.startswith('Heading'):
+                        full_text += text + ' '
+                file_data["file_header"].append(full_text)
+        except Exception as e:
+            print(f"Error reading file: {path}. Error: {str(e)}")

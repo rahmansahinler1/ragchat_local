@@ -119,6 +119,7 @@ class FileProcessor:
                 index_object["file_sentence_amount"].extend(sentence_amount for sentence_amount in value["file_sentence_amount"])
                 index_object["sentences"].extend(sentence for sentence in value["sentences"])
                 index_object["date"].extend(date for date in value["date"])
+                index_object["file_header"].extend(date for date in value["file_header"])
                 index_object["embeddings"] = np.vstack((index_object["embeddings"], value["embeddings"]))
                 
                 self.indf.save_index(
@@ -196,6 +197,7 @@ class FileProcessor:
                     index_object["embeddings"] = np.delete(index_object["embeddings"], np.arange(change_index_start, change_index_finish), axis=0)
                     index_object["file_path"].pop(file_path_index)
                     index_object["date"].pop(file_path_index)
+                    index_object["file_header"].pop(file_path_index)
                     index_object["file_sentence_amount"].pop(file_path_index)
                    
                    #Removing pickle if file is empty
@@ -214,7 +216,8 @@ class FileProcessor:
     def index_filter(
             self,
             index_object,
-            date
+            date = None,
+            file_list = None
         ):
         shape = index_object["embeddings"].shape
         filtered_index = {
@@ -222,6 +225,7 @@ class FileProcessor:
                 "file_sentence_amount": [],
                 "sentences" : [],
                 "date" : [],
+                "file_header" : [],
                 "embeddings": np.empty(shape=shape)
         }
         file_path_indexes = []
@@ -236,6 +240,7 @@ class FileProcessor:
                             filtered_index["file_path"].append(index_object["file_path"][i])
                             filtered_index["file_sentence_amount"].append(index_object["file_sentence_amount"][i])
                             filtered_index["date"].append(index_object["date"][i])
+                            filtered_index["file_header"].append(index_object["file_header"][i])
                         except FileNotFoundError as e:
                             raise FileExistsError(f"Index file could not be found for filtering!: {e}")
                         
@@ -251,15 +256,40 @@ class FileProcessor:
                     raise FileExistsError(f"Index file could not be found for filtering!: {e}")
             else:
                 return filtered_index
+        elif file_list: 
+            for i,file_path in enumerate(index_object['file_path']):
+                if file_path in file_list:
+                        file_path_indexes.append(i)
+                        try:
+                            filtered_index["file_path"].append(index_object["file_path"][i])
+                            filtered_index["file_sentence_amount"].append(index_object["file_sentence_amount"][i])
+                            filtered_index["date"].append(index_object["date"][i])
+                            filtered_index["file_header"].append(index_object["file_header"][i])
+                        except FileNotFoundError as e:
+                            raise FileExistsError(f"Index file could not be found for filtering!: {e}")
+                        
+            for index in file_path_indexes:
+                try:
+                    sentence_start = sum(sum(page_sentences) for page_sentences in index_object["file_sentence_amount"][:index])
+                    sentence_end =  sentence_start + sum(index_object["file_sentence_amount"][index])
+
+                    filtered_index["sentences"].extend(index_object["sentences"][sentence_start:sentence_end])
+                    filtered_index["embeddings"] = np.vstack((index_object["embeddings"][sentence_start:sentence_end],filtered_index["embeddings"]))
+
+                except FileNotFoundError as e:
+                    raise FileExistsError(f"Index file could not be found for filtering!: {e}")
+            else:
+                return filtered_index
+
         else:
             return index_object
 
     def generate_additional_queries(self, query):
         return self.cf.query_generation(query=query)
-
+    
     def search_index(
             self,
-            user_query: np.ndarray
+            user_query: np.ndarray,
     ):
         splitted_queries = user_query.split('\n')
         splitted_queries = splitted_queries[:6]
@@ -273,11 +303,11 @@ class FileProcessor:
             else:
                 query_vector = self.ef.create_vector_embedding_from_query(query=query)
                 D, I = globals.index.search(query_vector, 3)
-                for j, index in enumerate(I[0][0:3]):
-                    if index in dict_resource:
-                        dict_resource[index].append(D[0][j])
+                for j, indexes in enumerate(I[0][0:3]):
+                    if indexes in dict_resource:
+                        dict_resource[indexes].append(D[0][j])
                     else:
-                        dict_resource[index] = [D[0][j]]
+                        dict_resource[indexes] = [D[0][j]]
         try: 
             index_list = list(dict_resource.keys())
         except ValueError as e:
@@ -301,6 +331,7 @@ class FileProcessor:
     def file_change_to_memory(self, change: Dict):
         # Create embeddings
         file_data = self.rf.read_file(file_path=change["file_path"])
+        self.rf._extract_file_header(file_path=change["file_path"],file_data=file_data)
         file_embeddings = self.ef.create_vector_embeddings_from_sentences(sentences=file_data["sentences"])
 
         # Detect changed domain
@@ -313,6 +344,7 @@ class FileProcessor:
                 self.change_dict[domain]["file_sentence_amount"].append(file_data["page_sentence_amount"])
                 self.change_dict[domain]["sentences"].extend(file_data["sentences"])
                 self.change_dict[domain]["date"].extend(file_data["date"])
+                self.change_dict[domain]["file_header"].extend(file_data["date"])
                 self.change_dict[domain]["embeddings"] = np.vstack((self.change_dict[domain]["embeddings"], file_embeddings))
             else:
                 self.change_dict[domain] = {
@@ -320,8 +352,34 @@ class FileProcessor:
                     "file_sentence_amount": [file_data["page_sentence_amount"]],
                     "sentences": file_data["sentences"],
                     "date" : file_data["date"],
+                    "file_header" : file_data["file_header"],
                     "embeddings": file_embeddings
                 }
+
+    # Search on file header function
+    def search_file_header_index(self,query,db_folder_path):
+        try:
+            index_path = db_folder_path / "indexes" / (globals.selected_domain + ".pickle")
+        except FileNotFoundError as e:
+            raise FileExistsError(f"Index file could not be found for header search!: {e}")
+        file_list = []
+
+        original_query = query.split('\n')[0]
+        index_object = self.indf.load_index(index_path=index_path)
+        query_vector = self.ef.create_vector_embedding_from_query(query=original_query)
+        file_header_embeddings = self.ef.create_vector_embeddings_from_sentences(index_object["file_header"])
+        file_header_index = self.create_index(file_header_embeddings)
+
+        D,I = file_header_index.search(query_vector,2)
+        for i,index in enumerate(I[0]):
+            if D[0][i] < 0.5:
+                file_list.append(index_object["file_path"][index])
+        unique_list = list(dict.fromkeys(file_list))
+        file_header_index = self.index_filter(index_object=index_object,file_list = unique_list)
+        index = self.create_index(file_header_index["embeddings"])
+        globals.index = index
+
+        return globals.index
 
     def extract_embeddings_from_index(self, index):
         num_vectors = index.ntotal
