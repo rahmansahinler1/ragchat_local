@@ -133,7 +133,7 @@ class FileProcessor:
                 self.indf.save_index(index_object=value, save_path=index_path)
         
         self.clean_processor()
-    
+
     def index_update(
         self,
         changes: List[Dict[str, str]],
@@ -243,7 +243,6 @@ class FileProcessor:
                 "embeddings": np.empty(shape=shape)
         }
         file_path_indexes = []
-        page_list = []
         if date:
             date = datetime.strptime(date,"%m/%d/%y")
             for i in range(len(index_object["file_path"])):
@@ -284,18 +283,24 @@ class FileProcessor:
                         filtered_index["block_num"].append(index_object["block_num"][i])
                         filtered_index["boost"].append(index_object["boost"][i])
                         filtered_index["embeddings"] = np.vstack((index_object["embeddings"][i],filtered_index["embeddings"]))
+                        non_zero_mask = ~np.all(np.abs(filtered_index["embeddings"]) < 1e-10, axis=1)
+                        filtered_index["embeddings"] = filtered_index["embeddings"][non_zero_mask]
                     except FileNotFoundError as e:
                             raise FileExistsError(f"Index file could not be found for filtering!: {e}")
             globals.boosted_sentences = filtered_index["sentences"]
             for i in range(len(index_object["file_path"])):
+                page_list = []
                 sentence_start = sum(sum(page_sentences) for page_sentences in index_object["file_sentence_amount"][:i])
                 sentence_end =  sentence_start + sum(index_object["file_sentence_amount"][i])
                 if sum(index_object["boost"][sentence_start:sentence_end]) > 0:
                     try:
                         filtered_index["file_path"].append(index_object["file_path"][i])
                         filtered_index["date"].append(index_object["date"][i])
+                    except FileNotFoundError as e:
+                        raise FileExistsError(f"Index file could not be found for filtering!: {e}")
 
-                        for sentence_num in convergence_vector:
+                    for sentence_num in convergence_vector:
+                        if globals.headers_dict['file'][sentence_num] == i:
                             start = globals.headers_dict['sentence_index'][sentence_num]
                             if sentence_num < len(globals.headers_dict['sentence_index']) - 1:
                                 end = globals.headers_dict['sentence_index'][sentence_num+1]
@@ -306,11 +311,13 @@ class FileProcessor:
                             valid_pages = [p - 1 for p in pages_in_range if p > 0 and p <= len(index_object["file_sentence_amount"][i])]
                             page_list.extend(valid_pages)
 
-                        uniqe_page_list = list(dict.fromkeys(page_list))
-                        for index in uniqe_page_list:
-                            filtered_index["file_sentence_amount"].append(index_object["file_sentence_amount"][i][index])
-                    except FileNotFoundError as e:
-                        raise FileExistsError(f"Index file could not be found for filtering!: {e}")
+                    uniqe_page_list = [num for i, num in enumerate(page_list) if i == 0 or num != page_list[i-1]]
+                    current_file_sentences = []
+                    for index in uniqe_page_list:
+                        current_file_sentences.append(index_object["file_sentence_amount"][i][index])
+
+                    if current_file_sentences:
+                        filtered_index["file_sentence_amount"].append(current_file_sentences)
             else:
                 return filtered_index
         else:
@@ -382,7 +389,7 @@ class FileProcessor:
                 }
 
     # Boost most semanticaly similar headers sentences
-    def search_header_index(self,query,db_folder_path):
+    def search_header_index(self, query, db_folder_path):
         try:
             index_path = db_folder_path / "indexes" / (globals.selected_domain + ".pickle")
         except FileNotFoundError as e:
@@ -394,7 +401,7 @@ class FileProcessor:
         header_embeddings = self.ef.create_vector_embeddings_from_sentences(globals.headers_dict["header"])
         header_index = self.create_index(header_embeddings)
 
-        _,I = header_index.search(query_vector,10)
+        _,I = header_index.search(query_vector,15)
         for sentence_num in I[0]:
             start = globals.headers_dict['sentence_index'][sentence_num]
             if sentence_num < len(globals.headers_dict['sentence_index']) - 1:
@@ -411,20 +418,33 @@ class FileProcessor:
         return boosted_index_dict
 
     # Extract headers from the index
-    def extract_header(self,index_object):
+    def extract_header(self, index_object):
+        file_range = []
         headers_list = {
             "header" : [],
             "sentence_index" : [],
+            "file" : [],
         }
-        for i,(sentence,is_header) in enumerate(zip(index_object["sentences"],index_object["is_header"])):
+        for i in range(len(index_object["file_path"])):
+            sentence_start = sum(sum(page_sentences) for page_sentences in index_object["file_sentence_amount"][:i])
+            sentence_end =  sentence_start + sum(index_object["file_sentence_amount"][i])
+            file_range.append((sentence_start,sentence_end))
+
+        for j,(sentence,is_header) in enumerate(zip(index_object["sentences"],index_object["is_header"])):
             if is_header == 1:
-                headers_list["header"].append(sentence)
-                headers_list["sentence_index"].append(i)
+                for i,(sentence_start,sentence_end) in enumerate(file_range):
+                    if sentence_start <= j < sentence_end:
+                        headers_list["header"].append(sentence)
+                        headers_list["sentence_index"].append(j)
+                        headers_list["file"].append(i)
+
         return headers_list
     
     # Create context from search outputs
-    def create_context_resource(self,user_query,index_search_list : dict,boosted_search_list : dict):
+    def create_context(self, user_query, index_search_list : dict, boosted_search_list : dict):
         full_sentences = []
+        standart_index_list = []
+        boosted_index_list = []
         original_query = user_query.split('\n')[0]
 
         standart = self.sort_resources(resources_dict = index_search_list)
@@ -433,17 +453,23 @@ class FileProcessor:
         for key,value in boosted.items():
             boosted[key] = value - (value*0.05)
 
-        #combined_list = standart | boosted
-        #sorted_combined_list = dict(sorted(combined_list.items(), key=lambda item: item[1]))
+        combined_list = standart | boosted
+        sorted_combined_list = self.sort_resources(resources_dict = combined_list)
 
-        standart_index_list = list(standart.keys())
-        boosted_index_list = list(boosted.keys())
-
-        widen_sentences = self.widen_sentences(window_size=1, convergence_vector=standart_index_list, sentences=globals.sentences)
-        boosted_widen_sentences = self.widen_sentences(window_size=1, convergence_vector=boosted_index_list, sentences=globals.boosted_sentences)
-        full_sentences.extend(widen_sentences)
-        full_sentences.extend(boosted_widen_sentences)
-
+        for index in sorted_combined_list.keys():
+            if index in standart.keys():
+                widen_sentences = self.widen_sentences(window_size=1, convergence_vector=[index], sentences=globals.sentences)
+                full_sentences.extend(widen_sentences)
+            elif index in boosted.keys():
+                boosted_widen_sentences = self.widen_sentences(window_size=1, convergence_vector=[index], sentences=globals.boosted_sentences)
+                full_sentences.extend(boosted_widen_sentences)
+            else:
+                widen_sentences = self.widen_sentences(window_size=1, convergence_vector=[index], sentences=globals.sentences)
+                boosted_widen_sentences = self.widen_sentences(window_size=1, convergence_vector=[index], sentences=globals.boosted_sentences)
+                full_sentences.extend(widen_sentences)
+                full_sentences.extend(boosted_widen_sentences)
+        
+        standart_index_list =list(standart.keys())
         context = self.create_dynamic_context(sentences=full_sentences)
         resources = self.extract_resources(convergence_vector=standart_index_list)
         resources_text = "- References in " + globals.selected_domain + ":"
@@ -465,10 +491,9 @@ class FileProcessor:
         for key, value in resources_dict.items():
             value_mean = sum(value) / len(value)
             value_coefficient = value_mean - len(value) * 0.0025
-            resources_dict[key].append(value_coefficient)
-        sorted_dict = dict(sorted(resources_dict.items(), key=lambda item: item[1][-1]))
-        result = {k: v[-1] for k, v in sorted_dict.items()}
-        return result
+            resources_dict[key] = value_coefficient
+        sorted_dict = dict(sorted(resources_dict.items(), key=lambda item: item[1]))
+        return sorted_dict
 
     def widen_sentences(self, window_size: int, convergence_vector: np.ndarray, sentences):  
         widen_sentences = []

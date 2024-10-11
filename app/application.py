@@ -166,7 +166,7 @@ class App(tk.Tk):
         if globals.index:
             boost_dict = self.processor.search_header_index(query=user_query,db_folder_path=self.db_folder_path)
             index_dict = self.processor.search_index(user_query=user_query, index = globals.index)
-            response, resource_text = self.processor.create_context_resource(user_query=user_query, index_search_list=index_dict, boosted_search_list=boost_dict)
+            response, resource_text = self.processor.create_context(user_query=user_query, index_search_list=index_dict, boosted_search_list=boost_dict)
             answer = f"{response}\n{resource_text}"
             self.display_message(message=answer, sender="system")
         else:
