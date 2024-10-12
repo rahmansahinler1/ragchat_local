@@ -444,23 +444,16 @@ class FileProcessor:
     def create_context(self, user_query, index_search_list : dict, boosted_search_list : dict):
         full_sentences = []
         standart_index_list = []
-        boosted_index_list = []
         original_query = user_query.split('\n')[0]
 
-        standart = self.sort_resources(resources_dict = index_search_list)
-        boosted = self.sort_resources(resources_dict = boosted_search_list)
-
-        for key,value in boosted.items():
-            boosted[key] = value - (value*0.05)
-
-        combined_list = standart | boosted
+        combined_list = index_search_list | boosted_search_list
         sorted_combined_list = self.sort_resources(resources_dict = combined_list)
 
         for index in sorted_combined_list.keys():
-            if index in standart.keys():
+            if index in index_search_list.keys():
                 widen_sentences = self.widen_sentences(window_size=1, convergence_vector=[index], sentences=globals.sentences)
                 full_sentences.extend(widen_sentences)
-            elif index in boosted.keys():
+            elif index in boosted_search_list.keys():
                 boosted_widen_sentences = self.widen_sentences(window_size=1, convergence_vector=[index], sentences=globals.boosted_sentences)
                 full_sentences.extend(boosted_widen_sentences)
             else:
@@ -468,8 +461,8 @@ class FileProcessor:
                 boosted_widen_sentences = self.widen_sentences(window_size=1, convergence_vector=[index], sentences=globals.boosted_sentences)
                 full_sentences.extend(widen_sentences)
                 full_sentences.extend(boosted_widen_sentences)
-        
-        standart_index_list =list(standart.keys())
+
+        standart_index_list = list(index_search_list.keys())
         context = self.create_dynamic_context(sentences=full_sentences)
         resources = self.extract_resources(convergence_vector=standart_index_list)
         resources_text = "- References in " + globals.selected_domain + ":"

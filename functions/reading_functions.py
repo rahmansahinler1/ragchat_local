@@ -134,7 +134,10 @@ class ReadingFunctions:
                 (?:\+?1?\s*\(?(?:\d{3})\)?[-.\s]?\d{3}[-.\s]?\d{4}) # Phone
             )
         """
-        regex_pattern = re.compile(f"{url_pattern}|{number_pattern}|{date_pattern}", re.VERBOSE)
+        punct_pattern = r"""
+        (?:[\s!\"#$%&\'()*+,\-.:;<=>?@\[\\\]^_`{|}~]+)(?!\w)
+        """
+        regex_pattern = re.compile(f"{url_pattern}|{number_pattern}|{date_pattern}|{punct_pattern}", re.VERBOSE)
         result = re.search(regex_pattern,text)
         return result
     
