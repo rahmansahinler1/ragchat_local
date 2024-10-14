@@ -43,10 +43,11 @@ class ReadingFunctions:
                             blocks = page.get_text("dict")["blocks"]
                             text_blocks = [block for block in blocks if block["type"] == 0]
                             for i,block in enumerate(text_blocks):
-                                if "lines" in block and len(block["lines"]) >= 1 and len(block["lines"]) < 5:
+                                if "lines" in block and len(block["lines"]) >= 1 and len(block["lines"]) < 5:   # NOTE: This will pop up if there are no "lines" in block
                                     for line in block["lines"]:
                                         for span in line["spans"]:
                                             text = span["text"]
+                                            # NOTE: why are we attaching boost while reading?
                                             if span["size"] > 10 and (span["font"].find("Medi") >0 or span["font"].find("Bold") >0 or span["font"].find("B") >0) and len(text) > 3 and text[0].isupper():
                                                 file_data["sentences"].append(text)
                                                 file_data["is_header"].append(1)

@@ -3,6 +3,7 @@ from tkinter import *
 from tkinter import scrolledtext
 from tkinter import font as tkfont
 from PIL import Image, ImageTk
+import numpy as np
 
 from pathlib import Path
 from tkinter import messagebox
@@ -164,11 +165,28 @@ class App(tk.Tk):
 
     def generate_response(self, user_query):
         if globals.index:
-            boost_dict = self.processor.search_header_index(query=user_query,db_folder_path=self.db_folder_path)
-            index_dict = self.processor.search_index(user_query=user_query, index = globals.index)
-            response, resource_text = self.processor.create_context(user_query=user_query, index_search_list=index_dict, boosted_search_list=boost_dict)
-            answer = f"{response}\n{resource_text}"
-            self.display_message(message=answer, sender="system")
+            boost = np.ones(len(globals.sentences))
+            header_indexes = [index for index in range(len(globals.is_header)) if globals.is_header[index]]
+            headers = [globals.sentences[header_index] for header_index in header_indexes]
+            header_embeddings = self.processor.ef.create_vector_embeddings_from_sentences(sentences=headers)
+            index_header = self.processor.create_index(embeddings=header_embeddings)
+            D, I = index_header.search(self.processor.ef.create_vector_embedding_from_query(user_query), 10)
+            filtered_header_indexes = sorted([header_index for index, header_index in enumerate(I[0]) if D[0][index] < 0.50])
+            for filtered_index in filtered_header_indexes:
+                try:
+                    start = header_indexes[filtered_index] + 1
+                    end = header_indexes[filtered_index + 1]
+                    boost[start:end] *= 0.9
+                except IndexError:
+                    continue
+            D_user, I_user = globals.index.search(self.processor.ef.create_vector_embedding_from_query(user_query), len(globals.sentences))
+            boosted_distances = D_user[0] * boost
+            sorted_distance = [i for i, _ in sorted(enumerate(boosted_distances), key=lambda x: x[1], reverse=False)]
+            sorted_sentences = I_user[0][sorted_distance[:10]]
+            widen_sentences = self.processor.widen_sentences(window_size=1, convergence_vector=sorted_sentences, sentences=globals.sentences)
+            context = self.processor.create_dynamic_context(sentences=widen_sentences)
+            response = self.processor.cf.response_generation(query=user_query, context=context)
+            self.display_message(message=response, sender="system")
         else:
             messagebox.showerror("Error!", "Please first select your resource folder in the button on the top right!")
 
