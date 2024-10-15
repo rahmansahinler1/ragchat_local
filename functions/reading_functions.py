@@ -22,7 +22,6 @@ class ReadingFunctions:
             "is_header": [],
             "page_num": [],
             "block_num": [],
-            "boost" : [],
         }
         # Open file
         path = Path(file_path)
@@ -43,23 +42,20 @@ class ReadingFunctions:
                             blocks = page.get_text("dict")["blocks"]
                             text_blocks = [block for block in blocks if block["type"] == 0]
                             for i,block in enumerate(text_blocks):
-                                if "lines" in block and len(block["lines"]) >= 1 and len(block["lines"]) < 5:   # NOTE: This will pop up if there are no "lines" in block
+                                if "lines" in block and len(block["lines"]) >= 1 and len(block["lines"]) < 5: 
                                     for line in block["lines"]:
                                         for span in line["spans"]:
                                             text = span["text"]
-                                            # NOTE: why are we attaching boost while reading?
                                             if span["size"] > 10 and (span["font"].find("Medi") >0 or span["font"].find("Bold") >0 or span["font"].find("B") >0) and len(text) > 3 and text[0].isupper():
                                                 file_data["sentences"].append(text)
                                                 file_data["is_header"].append(1)
                                                 file_data["page_num"].append(page_num+1)
                                                 file_data["block_num"].append(i)
-                                                file_data["boost"].append(0)
                                             elif len(text) > 15 and self._header_regex_check(text=text) == None :
                                                 file_data["sentences"].append(text)
                                                 file_data["is_header"].append(0)
                                                 file_data["page_num"].append(page_num+1)
                                                 file_data["block_num"].append(i)
-                                                file_data["boost"].append(0)
                                 elif "lines" in block:
                                     for sent_num in range(len(block_text[i][4].split('. '))):
                                             sentence = re.split(r'(?<=[.!?])\s+', block_text[i][4])[sent_num].strip()
@@ -69,7 +65,6 @@ class ReadingFunctions:
                                                 file_data["is_header"].append(0)
                                                 file_data["page_num"].append(page_num + 1)
                                                 file_data["block_num"].append(i)
-                                                file_data["boost"].append(0)
                             current_sentence_count = len(file_data["sentences"])
                             sentences_in_this_page = current_sentence_count - previous_sentence_count
                             file_data["page_sentence_amount"].append(sentences_in_this_page)
