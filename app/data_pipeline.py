@@ -216,8 +216,7 @@ class FileProcessor:
     def index_filter(
             self,
             index_object,
-            date = None,
-            file_list = None
+            date = None
         ):
         shape = index_object["embeddings"].shape
         filtered_index = {
@@ -256,31 +255,6 @@ class FileProcessor:
                     raise FileExistsError(f"Index file could not be found for filtering!: {e}")
             else:
                 return filtered_index
-        elif file_list: 
-            for i,file_path in enumerate(index_object['file_path']):
-                if file_path in file_list:
-                        file_path_indexes.append(i)
-                        try:
-                            filtered_index["file_path"].append(index_object["file_path"][i])
-                            filtered_index["file_sentence_amount"].append(index_object["file_sentence_amount"][i])
-                            filtered_index["date"].append(index_object["date"][i])
-                            filtered_index["file_header"].append(index_object["file_header"][i])
-                        except FileNotFoundError as e:
-                            raise FileExistsError(f"Index file could not be found for filtering!: {e}")
-                        
-            for index in file_path_indexes:
-                try:
-                    sentence_start = sum(sum(page_sentences) for page_sentences in index_object["file_sentence_amount"][:index])
-                    sentence_end =  sentence_start + sum(index_object["file_sentence_amount"][index])
-
-                    filtered_index["sentences"].extend(index_object["sentences"][sentence_start:sentence_end])
-                    filtered_index["embeddings"] = np.vstack((index_object["embeddings"][sentence_start:sentence_end],filtered_index["embeddings"]))
-
-                except FileNotFoundError as e:
-                    raise FileExistsError(f"Index file could not be found for filtering!: {e}")
-            else:
-                return filtered_index
-
         else:
             return index_object
 
@@ -295,30 +269,33 @@ class FileProcessor:
         splitted_queries = splitted_queries[:6]
         original_query = splitted_queries[0]
         dict_resource = {}
-        index_list = []
         sorted_index_list = []
+        boost = self.search_file_header_index(query=original_query)
         for query in splitted_queries:
-            if(query=="\n" or query=="no response"):
+            if(query=="\n" or query=="\n\n" or query=="no response"):
                 continue
             else:
                 query_vector = self.ef.create_vector_embedding_from_query(query=query)
-                D, I = globals.index.search(query_vector, 3)
-                for j, indexes in enumerate(I[0][0:3]):
+                D, I = globals.index.search(query_vector, len(globals.sentences))
+                for j, indexes in enumerate(I[0]):
                     if indexes in dict_resource:
                         dict_resource[indexes].append(D[0][j])
                     else:
                         dict_resource[indexes] = [D[0][j]]
         try: 
-            index_list = list(dict_resource.keys())
+            sorted_index_list = self.sort_resources(dict_resource)
+            indexes = list(sorted_index_list.keys())
+            distances = np.array(list(sorted_index_list.values()))
+            boosted_distances = distances * boost
+            sorted_distance = [i for i, _ in sorted(enumerate(boosted_distances), key=lambda x: x[1], reverse=False)]
+            sorted_sentences = I[0][sorted_distance[:10]]
         except ValueError as e:
             original_query = "Please provide meaningful query:"
             print(f"{original_query, {e}}")
-        dict_resource = self.sort_resources(resources_dict = dict_resource)
-        sorted_index_list = list(dict_resource.keys())
 
-        widen_sentences = self.widen_sentences(window_size=1, convergence_vector=sorted_index_list)
+        widen_sentences = self.widen_sentences(window_size=1, convergence_vector=sorted_sentences)
         context = self.create_dynamic_context(sentences=widen_sentences)
-        resources = self.extract_resources(convergence_vector=sorted_index_list)
+        resources = self.extract_resources(convergence_vector=sorted_sentences)
         resources_text = "- References in " + globals.selected_domain + ":"
         for i, resource in enumerate(resources):
             resources_text += textwrap.dedent(f"""
@@ -344,7 +321,7 @@ class FileProcessor:
                 self.change_dict[domain]["file_sentence_amount"].append(file_data["page_sentence_amount"])
                 self.change_dict[domain]["sentences"].extend(file_data["sentences"])
                 self.change_dict[domain]["date"].extend(file_data["date"])
-                self.change_dict[domain]["file_header"].extend(file_data["date"])
+                self.change_dict[domain]["file_header"].extend(file_data["file_header"])
                 self.change_dict[domain]["embeddings"] = np.vstack((self.change_dict[domain]["embeddings"], file_embeddings))
             else:
                 self.change_dict[domain] = {
@@ -357,30 +334,23 @@ class FileProcessor:
                 }
 
     # Search on file header function
-    def search_file_header_index(self,query,db_folder_path):
-        try:
-            index_path = db_folder_path / "indexes" / (globals.selected_domain + ".pickle")
-        except FileNotFoundError as e:
-            raise FileExistsError(f"Index file could not be found for header search!: {e}")
-        file_list = []
-
+    def search_file_header_index(self,query):
+        boost = np.ones(len(globals.sentences))
         original_query = query.split('\n')[0]
-        index_object = self.indf.load_index(index_path=index_path)
-        query_vector = self.ef.create_vector_embedding_from_query(query=original_query)
-        file_header_embeddings = self.ef.create_vector_embeddings_from_sentences(index_object["file_header"])
+
+        file_header_embeddings = self.ef.create_vector_embeddings_from_sentences(globals.file_headers)
         file_header_index = self.create_index(file_header_embeddings)
 
-        D,I = file_header_index.search(query_vector,2)
-        for i,index in enumerate(I[0]):
-            if D[0][i] < 0.40:
-                file_list.append(index_object["file_path"][index])
-        unique_list = list(dict.fromkeys(file_list))
-        file_header_index = self.index_filter(index_object=index_object,file_list = unique_list)
-        index = self.create_index(file_header_index["embeddings"])
-        globals.index = index
-        globals.files = file_header_index["file_path"]
-        globals.file_sentence_amount = file_header_index["file_sentence_amount"]
-        globals.sentences = file_header_index["sentences"]
+        D,I = file_header_index.search(self.ef.create_vector_embedding_from_query(query=original_query),2)
+        file_indexes = [file_index for index, file_index in enumerate(I[0]) if D[0][index] < 0.50]
+        for index in file_indexes:
+            try:
+                start = sum(globals.file_sentence_amount[:index])
+                end = sum(globals.file_sentence_amount[index])
+                boost[start:end] *= 0.9
+            except IndexError as e:
+                print(f"List is out of range {e}")
+        return boost
 
 
     def extract_embeddings_from_index(self, index):
@@ -399,8 +369,8 @@ class FileProcessor:
         for key, value in resources_dict.items():
             value_mean = sum(value) / len(value)
             value_coefficient = value_mean - len(value) * 0.0025
-            resources_dict[key].append(value_coefficient)
-        sorted_dict = dict(sorted(resources_dict.items(), key=lambda item: item[1][-1]))
+            resources_dict[key] = value_coefficient
+        sorted_dict = dict(sorted(resources_dict.items(), key=lambda item: item[1]))
         return sorted_dict
 
     def widen_sentences(self, window_size: int, convergence_vector: np.ndarray):  

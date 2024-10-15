@@ -6,7 +6,6 @@ from datetime import datetime
 import os 
 import fitz
 
-
 class ReadingFunctions:
     def __init__(self):
         self.nlp = spacy.load(
@@ -50,10 +49,8 @@ class ReadingFunctions:
                 file_data["date"].append(txt_date)
                 text = path.read_text(encoding='utf-8')
                 self._process_text(text, file_data)
-            
             else:
                 raise ValueError(f"Unsupported file type: {file_extension}")
-        
         except PyPDF2.errors.PdfReadError:
             print(f"Error reading PDF file: {path}. The file might be corrupted or incompatible.")
         except Exception as e:

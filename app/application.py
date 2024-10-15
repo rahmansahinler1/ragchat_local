@@ -164,7 +164,7 @@ class App(tk.Tk):
 
     def generate_response(self, user_query):
         if globals.index:
-            self.processor.search_file_header_index(query=user_query,db_folder_path=self.db_folder_path)
+            self.processor.search_file_header_index(query=user_query)
             response, resource_text = self.processor.search_index(user_query=user_query)
             answer = f"{response}\n{resource_text}"
             self.display_message(message=answer, sender="system")
