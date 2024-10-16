@@ -271,12 +271,14 @@ class FileProcessor:
         dict_resource = {}
         sorted_index_list = []
         boost = self.search_file_header_index(query=original_query)
-        for query in splitted_queries:
-            if(query=="\n" or query=="\n\n" or query=="no response"):
+        for i,query in enumerate(splitted_queries):
+            if(query=="\n" or query=="\n\n" or query=="no response" or query==""):
                 continue
             else:
                 query_vector = self.ef.create_vector_embedding_from_query(query=query)
                 D, I = globals.index.search(query_vector, len(globals.sentences))
+                if i == 0:
+                    first_search = I[0]
                 for j, indexes in enumerate(I[0]):
                     if indexes in dict_resource:
                         dict_resource[indexes].append(D[0][j])
@@ -288,7 +290,7 @@ class FileProcessor:
             distances = np.array(list(sorted_index_list.values()))
             boosted_distances = distances * boost
             sorted_distance = [i for i, _ in sorted(enumerate(boosted_distances), key=lambda x: x[1], reverse=False)]
-            sorted_sentences = I[0][sorted_distance[:10]]
+            sorted_sentences = first_search[sorted_distance[:10]]
         except ValueError as e:
             original_query = "Please provide meaningful query:"
             print(f"{original_query, {e}}")
@@ -343,13 +345,14 @@ class FileProcessor:
 
         D,I = file_header_index.search(self.ef.create_vector_embedding_from_query(query=original_query),2)
         file_indexes = [file_index for index, file_index in enumerate(I[0]) if D[0][index] < 0.50]
-        for index in file_indexes:
-            try:
-                start = sum(globals.file_sentence_amount[:index])
-                end = sum(globals.file_sentence_amount[index])
-                boost[start:end] *= 0.9
-            except IndexError as e:
-                print(f"List is out of range {e}")
+        if file_indexes:
+            for index in file_indexes:
+                try:
+                    start = sum(sum(page_sentence_amount) for page_sentence_amount in globals.file_sentence_amount[:index])
+                    end = start + sum(globals.file_sentence_amount[index])
+                    boost[start:end] *= 0.9
+                except IndexError as e:
+                    print(f"List is out of range {e}")
         return boost
 
 
