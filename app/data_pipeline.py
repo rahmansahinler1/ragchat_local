@@ -281,14 +281,15 @@ class FileProcessor:
         splitted_queries = splitted_queries[:6]
         original_query = splitted_queries[0]
         dict_resource = {}
-        index_list = []
         boost = self.search_index_header(query=original_query)
-        for query in splitted_queries:
-            if(query=="\n" or query=="\n\n" or query=="no response"):
+        for i,query in enumerate(splitted_queries):
+            if(query=="\n" or query=="\n\n" or query=="no response" or query==""):
                 continue
             else:
                 query_vector = self.ef.create_vector_embedding_from_query(query=query)
                 D, I = globals.index.search(query_vector, len(globals.sentences))
+                if i == 0:
+                    first_search = I[0]
                 for j, indexes in enumerate(I[0]):
                     if indexes in dict_resource:
                         dict_resource[indexes].append(D[0][j])
@@ -300,7 +301,7 @@ class FileProcessor:
             distances = np.array(list(sorted_index_list.values()))
             boosted_distances = distances * boost
             sorted_distance = [i for i, _ in sorted(enumerate(boosted_distances), key=lambda x: x[1], reverse=False)]
-            sorted_sentences = I[0][sorted_distance[:10]]
+            sorted_sentences = first_search[sorted_distance[:10]]
         except ValueError as e:
             original_query = "Please provide meaningful query:"
             print(f"{original_query, {e}}")
