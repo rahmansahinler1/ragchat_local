@@ -38,6 +38,7 @@ class ReadingFunctions:
                     try: 
                         for page_num in range(len(file)):
                             page = file.load_page(page_num)
+                            self._extract_pdf_table(page)
                             block_text = page.get_text("blocks")
                             blocks = page.get_text("dict")["blocks"]
                             text_blocks = [block for block in blocks if block["type"] == 0]
@@ -143,3 +144,10 @@ class ReadingFunctions:
        valid_sentences = [sentence for sentence in sentences if len(sentence) > 15]
        file_data["page_sentence_amount"].append(len(valid_sentences))
        file_data["sentences"].extend(valid_sentences)
+    
+    def _extract_pdf_table(self,page):
+        tabs = page.find_tables()
+        if tabs.tables:
+            for i in range(len(tabs.tables)):
+                table_text = page.get_text(clip = tabs.tables[i].bbox)
+    
