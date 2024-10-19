@@ -46,12 +46,12 @@ class ReadingFunctions:
                                     for line in block["lines"]:
                                         for span in line["spans"]:
                                             text = span["text"]
-                                            if span["size"] > 10 and (span["font"].find("Medi") >0 or span["font"].find("Bold") >0 or span["font"].find("B") >0) and len(text) > 3 and text[0].isupper():
+                                            if span["size"] > 8 and (span["font"].find("Medi") >0 or span["font"].find("Bold") >0 or span["font"].find("B") >0) and len(text) > 3 and text[0].isupper():
                                                 file_data["sentences"].append(text)
                                                 file_data["is_header"].append(1)
                                                 file_data["page_num"].append(page_num+1)
                                                 file_data["block_num"].append(i)
-                                            elif len(text) > 15 and self._header_regex_check(text=text) == None :
+                                            elif len(text) > 15 and re.search(r'^[^\w\s]+$|^[_]+$',text) == None:
                                                 file_data["sentences"].append(text)
                                                 file_data["is_header"].append(0)
                                                 file_data["page_num"].append(page_num+1)
@@ -104,38 +104,6 @@ class ReadingFunctions:
         clean_text = clean_text.replace('\n','')
         clean_text = clean_text.replace(' \n','')
         return clean_text
-    
-    def _header_regex_check(self,text):
-        url_pattern = r"""
-            (?:https?:\/\/)?                        # Optional protocol (http:// or https://)
-            (?:[\w-]+\.)*                           # Optional subdomains
-            [\w-]+                                  # Domain name
-            (?:\.[a-zA-Z]{2,})                      # Top-level domain (.com, .org, etc)
-            (?:\/[^\s]*)?                           # Optional path and query parameters
-        """
-        date_pattern = r"""
-            (?P<date>
-                \d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01]) |     # ISO date
-                (?:0[1-9]|1[0-2])/(?:0[1-9]|[12]\d|3[01])/\d{4} |     # USA date
-                (?:0[1-9]|[12]\d|3[01])[./](?:0[1-9]|1[0-2])[./]\d{4} # European date
-            )
-        """
-        number_pattern = r"""
-            (?P<number>
-                -?\d*\.?\d+[eE][+-]?\d+ |          # Scientific notation
-                -?\d*\.\d+ |                       # Decimal numbers
-                -?\d+ |                            # Integers
-                \d+% |                             # Percentages
-                [\$€£¥]\s*\d+(?:\.\d{2})? |        # Currency
-                (?:\+?1?\s*\(?(?:\d{3})\)?[-.\s]?\d{3}[-.\s]?\d{4}) # Phone
-            )
-        """
-        punct_pattern = r"""
-        (?:[\s!\"#$%&\'()*+,\-.:;<=>?@\[\\\]^_`{|}~]+)(?!\w)
-        """
-        regex_pattern = re.compile(f"{url_pattern}|{number_pattern}|{date_pattern}|{punct_pattern}", re.VERBOSE)
-        result = re.search(regex_pattern,text)
-        return result
     
     def _process_text(self, text, file_data):
        docs = self.nlp(text)
