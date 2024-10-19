@@ -22,7 +22,9 @@ class ReadingFunctions:
             "is_header": [],
             "page_num": [],
             "block_num": [],
+            "file_tables": [],
         }
+        file_tables = []
         # Open file
         path = Path(file_path)
         file_extension = path.suffix.lower()
@@ -38,7 +40,7 @@ class ReadingFunctions:
                     try: 
                         for page_num in range(len(file)):
                             page = file.load_page(page_num)
-                            self._extract_pdf_table(page)
+                            file_tables.append(self._extract_pdf_table(page))
                             block_text = page.get_text("blocks")
                             blocks = page.get_text("dict")["blocks"]
                             text_blocks = [block for block in blocks if block["type"] == 0]
@@ -47,12 +49,12 @@ class ReadingFunctions:
                                     for line in block["lines"]:
                                         for span in line["spans"]:
                                             text = span["text"]
-                                            if span["size"] > 10 and (span["font"].find("Medi") >0 or span["font"].find("Bold") >0 or span["font"].find("B") >0) and len(text) > 3 and text[0].isupper():
+                                            if span["size"] > 8 and (span["font"].find("Medi") >0 or span["font"].find("Bold") >0 or span["font"].find("B") >0) and len(text) > 3 and text[0].isupper():
                                                 file_data["sentences"].append(text)
                                                 file_data["is_header"].append(1)
                                                 file_data["page_num"].append(page_num+1)
                                                 file_data["block_num"].append(i)
-                                            elif len(text) > 15 and self._header_regex_check(text=text) == None :
+                                            elif len(text) > 15 and re.search(r'^[^\w\s]+$|^[_]+$',text) == None:
                                                 file_data["sentences"].append(text)
                                                 file_data["is_header"].append(0)
                                                 file_data["page_num"].append(page_num+1)
@@ -70,6 +72,7 @@ class ReadingFunctions:
                             sentences_in_this_page = current_sentence_count - previous_sentence_count
                             file_data["page_sentence_amount"].append(sentences_in_this_page)
                             previous_sentence_count = current_sentence_count
+                            file_data["file_tables"].append(file_tables)
                     except TypeError as e:
                         raise TypeError(f"PDF text could not extracted!: {e}")
             elif file_extension == '.docx':
@@ -106,38 +109,6 @@ class ReadingFunctions:
         clean_text = clean_text.replace(' \n','')
         return clean_text
     
-    def _header_regex_check(self,text):
-        url_pattern = r"""
-            (?:https?:\/\/)?                        # Optional protocol (http:// or https://)
-            (?:[\w-]+\.)*                           # Optional subdomains
-            [\w-]+                                  # Domain name
-            (?:\.[a-zA-Z]{2,})                      # Top-level domain (.com, .org, etc)
-            (?:\/[^\s]*)?                           # Optional path and query parameters
-        """
-        date_pattern = r"""
-            (?P<date>
-                \d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01]) |     # ISO date
-                (?:0[1-9]|1[0-2])/(?:0[1-9]|[12]\d|3[01])/\d{4} |     # USA date
-                (?:0[1-9]|[12]\d|3[01])[./](?:0[1-9]|1[0-2])[./]\d{4} # European date
-            )
-        """
-        number_pattern = r"""
-            (?P<number>
-                -?\d*\.?\d+[eE][+-]?\d+ |          # Scientific notation
-                -?\d*\.\d+ |                       # Decimal numbers
-                -?\d+ |                            # Integers
-                \d+% |                             # Percentages
-                [\$€£¥]\s*\d+(?:\.\d{2})? |        # Currency
-                (?:\+?1?\s*\(?(?:\d{3})\)?[-.\s]?\d{3}[-.\s]?\d{4}) # Phone
-            )
-        """
-        punct_pattern = r"""
-        (?:[\s!\"#$%&\'()*+,\-.:;<=>?@\[\\\]^_`{|}~]+)(?!\w)
-        """
-        regex_pattern = re.compile(f"{url_pattern}|{number_pattern}|{date_pattern}|{punct_pattern}", re.VERBOSE)
-        result = re.search(regex_pattern,text)
-        return result
-    
     def _process_text(self, text, file_data):
        docs = self.nlp(text)
        sentences = [sent.text.replace('\n', ' ').strip() for sent in docs.sents]
@@ -146,8 +117,15 @@ class ReadingFunctions:
        file_data["sentences"].extend(valid_sentences)
     
     def _extract_pdf_table(self,page):
+        table_list = []
         tabs = page.find_tables()
         if tabs.tables:
-            for i in range(len(tabs.tables)):
-                table_text = page.get_text(clip = tabs.tables[i].bbox)
-    
+            full_string = ""
+            for table in tabs.tables:
+                table_extract = table.extract()
+                for sublist in table_extract:
+                    filtered = [str(item).replace('\n', ' ').strip() for item in sublist if item is not None]
+                    combined_string = ' '.join(filtered) + '\n'
+                    full_string += combined_string
+            table_list.append(full_string)
+            return table_list
