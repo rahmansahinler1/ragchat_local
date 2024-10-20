@@ -119,6 +119,7 @@ class FileProcessor:
                 index_object["file_sentence_amount"].extend(sentence_amount for sentence_amount in value["file_sentence_amount"])
                 index_object["sentences"].extend(sentence for sentence in value["sentences"])
                 index_object["date"].extend(date for date in value["date"])
+                index_object["file_tables"].extend(table for table in value["file_tables"])
                 index_object["page_num"].extend(page for page in value["page_num"])
                 index_object["block_num"].extend(block for block in value["block_num"])
                 index_object["is_header"].extend(header for header in value["is_header"])
@@ -205,6 +206,7 @@ class FileProcessor:
                     index_object["embeddings"] = np.delete(index_object["embeddings"], np.arange(change_index_start, change_index_finish), axis=0)
                     index_object["file_path"].pop(file_path_index)
                     index_object["date"].pop(file_path_index)
+                    index_object["file_tables"].pop(file_path_index)
                     index_object["file_sentence_amount"].pop(file_path_index)
                    
                    #Removing pickle if file is empty
@@ -248,6 +250,7 @@ class FileProcessor:
                             filtered_index["file_path"].append(index_object["file_path"][i])
                             filtered_index["file_sentence_amount"].append(index_object["file_sentence_amount"][i])
                             filtered_index["date"].append(index_object["date"][i])
+                            filtered_index["file_tables"].append(index_object["file_tables"][i])
                         except FileNotFoundError as e:
                             raise FileExistsError(f"Index file could not be found for filtering!: {e}")
                         
@@ -320,6 +323,9 @@ class FileProcessor:
         # Create embeddings
         file_data = self.rf.read_file(file_path=change["file_path"])
         file_embeddings = self.ef.create_vector_embeddings_from_sentences(sentences=file_data["sentences"])
+        for i in range(len(file_data["file_tables"])):
+            file_tables_embeddings = []
+            file_tables_embeddings.append(self.ef.create_table_embeddings_from_tables(tables=file_data["file_tables"][i]))
 
         # Detect changed domain
         pattern = r'domain\d+'
@@ -331,6 +337,7 @@ class FileProcessor:
                 self.change_dict[domain]["file_sentence_amount"].append(file_data["page_sentence_amount"])
                 self.change_dict[domain]["sentences"].extend(file_data["sentences"])
                 self.change_dict[domain]["date"].extend(file_data["date"])
+                self.change_dict[domain]["file_tables"].extend(file_data["file_tables"])
                 self.change_dict[domain]["page_num"].extend(file_data["page_num"])
                 self.change_dict[domain]["block_num"].extend(file_data["block_num"])
                 self.change_dict[domain]["is_header"].extend(file_data["is_header"])
@@ -341,7 +348,9 @@ class FileProcessor:
                     "file_sentence_amount": [file_data["page_sentence_amount"]],
                     "sentences": file_data["sentences"],
                     "date" : file_data["date"],
+                    "file_tables" : file_data["file_tables"],
                     "embeddings": file_embeddings,
+                    "table_embeddings": file_tables_embeddings,
                     "page_num" : file_data["page_num"],
                     "block_num" : file_data["block_num"],
                     "is_header" : file_data["is_header"],

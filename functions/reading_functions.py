@@ -40,7 +40,8 @@ class ReadingFunctions:
                     try: 
                         for page_num in range(len(file)):
                             page = file.load_page(page_num)
-                            file_tables.append(self._extract_pdf_table(page))
+                            page_tables = self._extract_pdf_tables(page)
+                            if page_tables is not None: file_tables.append(page_tables)
                             block_text = page.get_text("blocks")
                             blocks = page.get_text("dict")["blocks"]
                             text_blocks = [block for block in blocks if block["type"] == 0]
@@ -49,7 +50,7 @@ class ReadingFunctions:
                                     for line in block["lines"]:
                                         for span in line["spans"]:
                                             text = span["text"]
-                                            if span["size"] > 8 and (span["font"].find("Medi") >0 or span["font"].find("Bold") >0 or span["font"].find("B") >0) and len(text) > 3 and text[0].isupper():
+                                            if span["size"] > 3 and (span["font"].find("Medi") >0 or span["font"].find("Bold") >0 or span["font"].find("B") >0) and len(text) > 3 and text[0].isupper():
                                                 file_data["sentences"].append(text)
                                                 file_data["is_header"].append(1)
                                                 file_data["page_num"].append(page_num+1)
@@ -72,7 +73,7 @@ class ReadingFunctions:
                             sentences_in_this_page = current_sentence_count - previous_sentence_count
                             file_data["page_sentence_amount"].append(sentences_in_this_page)
                             previous_sentence_count = current_sentence_count
-                            file_data["file_tables"].append(file_tables)
+                        file_data["file_tables"].append(file_tables)
                     except TypeError as e:
                         raise TypeError(f"PDF text could not extracted!: {e}")
             elif file_extension == '.docx':
@@ -116,10 +117,12 @@ class ReadingFunctions:
        file_data["page_sentence_amount"].append(len(valid_sentences))
        file_data["sentences"].extend(valid_sentences)
     
-    def _extract_pdf_table(self,page):
-        table_list = []
+    def _extract_pdf_tables(self,page):
         tabs = page.find_tables()
-        if tabs.tables:
+        if not tabs.tables:
+            return
+        else:
+            table_list = ''
             full_string = ""
             for table in tabs.tables:
                 table_extract = table.extract()
@@ -127,5 +130,5 @@ class ReadingFunctions:
                     filtered = [str(item).replace('\n', ' ').strip() for item in sublist if item is not None]
                     combined_string = ' '.join(filtered) + '\n'
                     full_string += combined_string
-            table_list.append(full_string)
+            table_list = ''.join(full_string)
             return table_list
