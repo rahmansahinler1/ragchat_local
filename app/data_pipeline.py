@@ -359,10 +359,11 @@ class FileProcessor:
         header_embeddings = self.ef.create_vector_embeddings_from_sentences(sentences=headers)
         index_header = self.create_index(embeddings=header_embeddings)
 
-        D,I = index_header.search(self.ef.create_vector_embedding_from_query(original_query),10)
-        filtered_header_indexes = sorted([header_index for index, header_index in enumerate(I[0]) if D[0][index] < 0.50])
-        for filtered_index in filtered_header_indexes:
+        D,I = index_header.search(self.ef.create_vector_embedding_from_query(original_query), round(len(headers)/10))
+        filtered_header_indexes = sorted([header_index for index, header_index in enumerate(I[0]) if D[0][index] < 0.40])
+        for index, filtered_index in enumerate(filtered_header_indexes):
             try:
+                print(str(D[0][index]) + " " + headers[filtered_index])
                 start = header_indexes[filtered_index] + 1
                 end = header_indexes[filtered_index + 1]
                 boost[start:end] *= 0.9
