@@ -359,12 +359,17 @@ class FileProcessor:
         index_header = self.create_index(embeddings=header_embeddings)
 
         D,I = index_header.search(self.ef.create_vector_embedding_from_query(original_query),10)
-        filtered_header_indexes = sorted([header_index for index, header_index in enumerate(I[0]) if D[0][index] < 0.50])
-        for filtered_index in filtered_header_indexes:
+        filtered_header_indexes = [header_index for index, header_index in enumerate(I[0]) if D[0][index] < 0.40]
+        for i,filtered_index in enumerate(filtered_header_indexes):
             try:
                 start = header_indexes[filtered_index] + 1
                 end = header_indexes[filtered_index + 1]
-                boost[start:end] *= 0.9
+                if i == 0:
+                    boost[start:end] *= 0.7
+                elif i in range(1,3):
+                    boost[start:end] *= 0.8
+                else:
+                    boost[start:end] *= 0.9
             except IndexError as e:
                 print(f"List is out of range {e}")
         return boost
