@@ -36,12 +36,13 @@ class ChatbotFunctions:
 
             Talimatlar:
             1. Size her biri birkaç cümle içeren bağlam penceresi verilecektir.
-            2. Tüm bağlam pencerelerini dikkatle okuyun.
-            3. Kullanıcının hangi özel bilgiyi aradığını anlamak için kullanıcının sorgusunu analiz edin.
-            4. Bağlam pencerelerinden ilgili bilgileri arayın ve çıkarın.
-            5. İstenen bilgi bağlam pencerelerinin hiçbirinde mevcut değilse, bunu açıkça belirtin.
-            6. Çıkarılan bilgileri açık ve özlü bir şekilde sunun.
-            7. Uygunsa, çıkarılan veriler için kısa bir bağlam veya açıklama sağlayın.
+            2. İlk bağlam en önemlisi, sonraki her bağlam ise azalan bir öneme sahip olup, son bağlam en az önemli olandır
+            3. Tüm bağlam pencerelerini dikkatle okuyun.
+            4. Kullanıcının hangi özel bilgiyi aradığını anlamak için kullanıcının sorgusunu analiz edin.
+            5. Bağlam pencerelerinden ilgili bilgileri arayın ve çıkarın.
+            6. İstenen bilgi bağlam pencerelerinin hiçbirinde mevcut değilse, bunu açıkça belirtin.
+            7. Çıkarılan bilgileri açık ve özlü bir şekilde sunun.
+            8. Uygunsa, çıkarılan veriler için kısa bir bağlam veya açıklama sağlayın.
 
             Aşağıdaki formatta yanıt verin:
             - Çıkarılan Bilgi: [Çıkarılan veriyi buraya yazın]
