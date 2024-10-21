@@ -34,12 +34,13 @@ class EmbeddingFunctions:
       tables: List[str],
       batch_size: int = 64   
     ):
+     table_embeddings = []
      batches =[tables[i:i+batch_size] for i in range(0,len(tables),batch_size)]
 
      for batch in batches:
-        table_embeddings = self.retriver.encode(batch).tolist()
+        table_embeddings.extend(self.retriver.encode(batch).tolist())
 
-     return table_embeddings
+     return np.array(table_embeddings,float)
 
     def create_vector_embedding_from_query(self, query):
         query_embedding = self.client.embeddings.create(
@@ -49,4 +50,4 @@ class EmbeddingFunctions:
 
     def create_table_embeddings_from_query(self,query):
         query_embedding = self.retriver.encode(query).tolist()
-        return query_embedding
+        return np.array(query_embedding,float)

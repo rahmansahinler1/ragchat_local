@@ -124,6 +124,7 @@ class FileProcessor:
                 index_object["block_num"].extend(block for block in value["block_num"])
                 index_object["is_header"].extend(header for header in value["is_header"])
                 index_object["embeddings"] = np.vstack((index_object["embeddings"], value["embeddings"]))
+                index_object["table_embeddings"] = np.vstack((index_object["table_embeddings"], value["table_embeddings"]))
                 
                 self.indf.save_index(
                     index_object=index_object,
@@ -323,9 +324,7 @@ class FileProcessor:
         # Create embeddings
         file_data = self.rf.read_file(file_path=change["file_path"])
         file_embeddings = self.ef.create_vector_embeddings_from_sentences(sentences=file_data["sentences"])
-        for i in range(len(file_data["file_tables"])):
-            file_tables_embeddings = []
-            file_tables_embeddings.append(self.ef.create_table_embeddings_from_file_tables(tables=file_data["file_tables"][i]))
+        file_tables_embeddings = self.ef.create_table_embeddings_from_file_tables(tables=file_data["file_tables"])
 
         # Detect changed domain
         pattern = r'domain\d+'
