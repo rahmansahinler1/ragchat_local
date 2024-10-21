@@ -46,12 +46,12 @@ class ReadingFunctions:
                                     for line in block["lines"]:
                                         for span in line["spans"]:
                                             text = span["text"]
-                                            if span["size"] > 5 and (span["font"].find("Medi") >0 or span["font"].find("Bold") >0 or span["font"].find("B") >0) and len(text) > 3 and text[0].isalpha() and self._header_regex_check(text=text) == None:
+                                            if span["size"] > 3 and (span["font"].find("Medi") >0 or span["font"].find("Bold") >0 or span["font"].find("B") >0) and len(text) > 3 and text[0].isalpha() and self._header_regex_check(text) == None:
                                                 file_data["sentences"].append(text)
                                                 file_data["is_header"].append(1)
                                                 file_data["page_num"].append(page_num+1)
                                                 file_data["block_num"].append(i)
-                                            elif len(text) > 15:
+                                            elif len(text) > 15 and re.search(r'^[^\w\s]+$|^[_]+$',text) == None:
                                                 file_data["sentences"].append(text)
                                                 file_data["is_header"].append(0)
                                                 file_data["page_num"].append(page_num+1)
@@ -107,11 +107,10 @@ class ReadingFunctions:
     
     def _header_regex_check(self,text):
         punct_pattern = r"\b[A-Z0-9]+(?:\/[A-Z0-9]+)*(?:\.[A-Z0-9]+)?\b"
-
         regex_pattern = re.compile(f"{punct_pattern}", re.VERBOSE)
         result = re.search(regex_pattern,text)
         return result
-    
+
     def _process_text(self, text, file_data):
        docs = self.nlp(text)
        sentences = [sent.text.replace('\n', ' ').strip() for sent in docs.sents]

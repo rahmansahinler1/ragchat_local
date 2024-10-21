@@ -281,10 +281,9 @@ class FileProcessor:
         splitted_queries = splitted_queries[:6]
         original_query = splitted_queries[0]
         dict_resource = {}
-        index_list = []
         boost = self.search_index_header(query=original_query)
-        for query in splitted_queries:
-            if(query=="\n" or query=="\n\n" or query=="no response"):
+        for i,query in enumerate(splitted_queries):
+            if(query=="\n" or query=="\n\n" or query=="no response" or query==""):
                 continue
             else:
                 query_vector = self.ef.create_vector_embedding_from_query(query=query)
@@ -296,11 +295,11 @@ class FileProcessor:
                         dict_resource[indexes] = [D[0][j]]
         try:
             sorted_index_list = self.sort_resources(dict_resource)
-            indexes = list(sorted_index_list.keys())
+            indexes = np.array(list(sorted_index_list.keys()))
             distances = np.array(list(sorted_index_list.values()))
             boosted_distances = distances * boost
             sorted_distance = [i for i, _ in sorted(enumerate(boosted_distances), key=lambda x: x[1], reverse=False)]
-            sorted_sentences = I[0][sorted_distance[:10]]
+            sorted_sentences = indexes[sorted_distance[:10]]
         except ValueError as e:
             original_query = "Please provide meaningful query:"
             print(f"{original_query, {e}}")
@@ -359,14 +358,19 @@ class FileProcessor:
         header_embeddings = self.ef.create_vector_embeddings_from_sentences(sentences=headers)
         index_header = self.create_index(embeddings=header_embeddings)
 
-        D,I = index_header.search(self.ef.create_vector_embedding_from_query(original_query), round(len(headers)/10))
-        filtered_header_indexes = sorted([header_index for index, header_index in enumerate(I[0]) if D[0][index] < 0.40])
-        for index, filtered_index in enumerate(filtered_header_indexes):
+        D,I = index_header.search(self.ef.create_vector_embedding_from_query(original_query),10)
+        filtered_header_indexes = [header_index for index, header_index in enumerate(I[0]) if D[0][index] < 0.40]
+        for i,filtered_index in enumerate(filtered_header_indexes):
             try:
                 print(str(D[0][index]) + " " + headers[filtered_index])
                 start = header_indexes[filtered_index] + 1
                 end = header_indexes[filtered_index + 1]
-                boost[start:end] *= 0.9
+                if i == 0:
+                    boost[start:end] *= 0.7
+                elif i in range(1,3):
+                    boost[start:end] *= 0.8
+                else:
+                    boost[start:end] *= 0.9
             except IndexError as e:
                 print(f"List is out of range {e}")
         return boost
