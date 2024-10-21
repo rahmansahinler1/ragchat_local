@@ -325,7 +325,7 @@ class FileProcessor:
         file_embeddings = self.ef.create_vector_embeddings_from_sentences(sentences=file_data["sentences"])
         for i in range(len(file_data["file_tables"])):
             file_tables_embeddings = []
-            file_tables_embeddings.append(self.ef.create_table_embeddings_from_tables(tables=file_data["file_tables"][i]))
+            file_tables_embeddings.append(self.ef.create_table_embeddings_from_file_tables(tables=file_data["file_tables"][i]))
 
         # Detect changed domain
         pattern = r'domain\d+'
@@ -342,6 +342,7 @@ class FileProcessor:
                 self.change_dict[domain]["block_num"].extend(file_data["block_num"])
                 self.change_dict[domain]["is_header"].extend(file_data["is_header"])
                 self.change_dict[domain]["embeddings"] = np.vstack((self.change_dict[domain]["embeddings"], file_embeddings))
+                self.change_dict[domain]["table_embeddings"] = np.vstack((self.change_dict[domain]["table_embeddings"], file_tables_embeddings))
             else:
                 self.change_dict[domain] = {
                     "file_path": [change["file_path"]],
