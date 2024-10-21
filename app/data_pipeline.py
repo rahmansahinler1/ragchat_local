@@ -277,6 +277,7 @@ class FileProcessor:
             self,
             user_query: np.ndarray,
     ):
+        all_widen_sentences = []
         splitted_queries = user_query.split('\n')
         splitted_queries = splitted_queries[:6]
         original_query = splitted_queries[0]
@@ -304,8 +305,15 @@ class FileProcessor:
             original_query = "Please provide meaningful query:"
             print(f"{original_query, {e}}")
 
-        widen_sentences = self.widen_sentences(window_size=1, convergence_vector=sorted_sentences)
-        context = self.create_dynamic_context(sentences=widen_sentences)
+        for i in range(len(sorted_sentences)):
+            if i == 0:
+                widen_sentences = self.widen_sentences(window_size=3, convergence_vector=sorted_sentences[i:i+1])
+            elif i in range(1,4):
+                widen_sentences = self.widen_sentences(window_size=2, convergence_vector=sorted_sentences[i:i+1])
+            else:
+                widen_sentences = self.widen_sentences(window_size=1, convergence_vector=sorted_sentences[i:i+1])
+            all_widen_sentences.extend(widen_sentences)
+        context = self.create_dynamic_context(sentences=all_widen_sentences)
         resources = self.extract_resources(convergence_vector=sorted_sentences)
         resources_text = "- References in " + globals.selected_domain + ":"
         for i, resource in enumerate(resources):
@@ -392,9 +400,12 @@ class FileProcessor:
     def widen_sentences(self, window_size: int, convergence_vector: np.ndarray):  
         widen_sentences = []
         for index in convergence_vector:
+            text = ""
             start = max(0, index - window_size)
             end = min(len(globals.sentences) - 1, index + window_size)
-            widen_sentences.append(f"{globals.sentences[start]} {globals.sentences[index]} {globals.sentences[end]}")
+            for i in range(start, end+1):
+                text += globals.sentences[i]
+            widen_sentences.append(text)
         return widen_sentences
 
     def extract_resources(self, convergence_vector: np.ndarray):
