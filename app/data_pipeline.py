@@ -362,7 +362,7 @@ class FileProcessor:
         filtered_header_indexes = [header_index for index, header_index in enumerate(I[0]) if D[0][index] < 0.40]
         for i,filtered_index in enumerate(filtered_header_indexes):
             try:
-                print(str(D[0][index]) + " " + headers[filtered_index])
+                print(str(D[0][i]) + " " + headers[filtered_index])
                 start = header_indexes[filtered_index] + 1
                 end = header_indexes[filtered_index + 1]
                 if i == 0:
@@ -378,7 +378,7 @@ class FileProcessor:
     def create_dynamic_context(self, sentences):
         context = ""
         for i, sentence in enumerate(sentences, 1):
-            context += f"Context{i}: {sentence}\n"
+            context += f"Context{i}: {sentence} Confidence: {(len(sentences)-i+1)/len(sentences)} \n "
         return context
 
     def sort_resources(self, resources_dict):

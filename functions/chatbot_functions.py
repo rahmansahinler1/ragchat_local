@@ -63,7 +63,7 @@ class ChatbotFunctions:
 
             Instructions:
             1. You will be provided with context windows, each containing several sentences.
-            2. The first context is the most important, and each subsequent context holds decreasing importance, with the last context being the least important.
+            2. There are confidence level specified as numbers after each context sentence, higher confidence number means higher priority in creating answer. Create the answer according to confidence levels. Confidence levels are going to be between 0 and 1.
             3. Carefully read all context windows.
             4. Analyze the user's query to understand what specific information they are looking for.
             5. Search for and extract the relevant information from the context windows according to the hierarchy and ensure your response reflects this priority.
