@@ -30,9 +30,9 @@ class ReadingFunctions:
             if file_extension == '.pdf':
                 with fitz.open(path) as file:
                     try:
+                        previous_sentence_count = 0
                         pdf_date = f"{file.metadata["creationDate"][4:6]}-{file.metadata["creationDate"][6:8]}-{file.metadata["creationDate"][9:11]}"
                         file_data["date"].append(pdf_date)
-                        previous_sentence_count = 0
                     except TypeError as e:
                         raise TypeError(f"PDF creation date could not extracted!: {e}")
                     try: 
@@ -74,21 +74,27 @@ class ReadingFunctions:
             elif file_extension == '.docx':
                 doc = Document(path)
                 try:
+                    previous_sentence_count = 0
                     doc_date = f"{doc.core_properties.created.year%2000}-{doc.core_properties.created.month}-{doc.core_properties.created.day}"
                     file_data["date"].append(doc_date)
                 except TypeError as e:
                     raise TypeError(f"Doc creation date could not extracted!: {e}")
-                for para in doc.paragraphs:
-                    if para.style.name.startswith('Heading') or para.style.name.startswith('Title'):
-                        file_data["sentences"].append(para.text)
-                        file_data["is_header"].append(1)
-                    else:
-                        file_data["sentences"].append(para.text)
-                        file_data["is_header"].append(0)
-                current_sentence_count = len(file_data["sentences"])
-                sentences_in_this_page = current_sentence_count - previous_sentence_count
-                file_data["page_sentence_amount"].append(sentences_in_this_page)
-                previous_sentence_count = current_sentence_count
+                finally:
+                    file_data["date"].append('')
+                    try:
+                        for para in doc.paragraphs:
+                            if para.style.name.startswith('Heading') or para.style.name.startswith('Title'):
+                                file_data["sentences"].append(para.text)
+                                file_data["is_header"].append(1)
+                            elif len(para.text) > 15:
+                                file_data["sentences"].append(para.text)
+                                file_data["is_header"].append(0)
+                        current_sentence_count = len(file_data["sentences"])
+                        sentences_in_this_page = current_sentence_count - previous_sentence_count
+                        file_data["page_sentence_amount"].append(sentences_in_this_page)
+                        previous_sentence_count = current_sentence_count
+                    except TypeError as e:
+                            raise TypeError(f"PDF text could not extracted!: {e}")
             elif file_extension in ['.txt', '.rtf']:
                 txt_date = os.path.getctime(path)
                 file_data["date"].append(txt_date)
