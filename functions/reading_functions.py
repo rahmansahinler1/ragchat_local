@@ -79,7 +79,16 @@ class ReadingFunctions:
                 except TypeError as e:
                     raise TypeError(f"Doc creation date could not extracted!: {e}")
                 for para in doc.paragraphs:
-                    self._process_text(para.text, file_data)
+                    if para.style.name.startswith('Heading') or para.style.name.startswith('Title'):
+                        file_data["sentences"].append(para.text)
+                        file_data["is_header"].append(1)
+                    else:
+                        file_data["sentences"].append(para.text)
+                        file_data["is_header"].append(0)
+                current_sentence_count = len(file_data["sentences"])
+                sentences_in_this_page = current_sentence_count - previous_sentence_count
+                file_data["page_sentence_amount"].append(sentences_in_this_page)
+                previous_sentence_count = current_sentence_count
             elif file_extension in ['.txt', '.rtf']:
                 txt_date = os.path.getctime(path)
                 file_data["date"].append(txt_date)
