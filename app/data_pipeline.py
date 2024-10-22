@@ -370,7 +370,6 @@ class FileProcessor:
         filtered_header_indexes = [header_index for index, header_index in enumerate(I[0]) if D[0][index] < 0.40]
         for i,filtered_index in enumerate(filtered_header_indexes):
             try:
-                print(str(D[0][i]) + " " + headers[filtered_index])
                 start = header_indexes[filtered_index] + 1
                 end = header_indexes[filtered_index + 1]
                 if i == 0:
