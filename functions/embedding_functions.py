@@ -50,4 +50,4 @@ class EmbeddingFunctions:
 
     def create_table_embeddings_from_query(self,query):
         query_embedding = self.retriver.encode(query).tolist()
-        return np.array(query_embedding,float)
+        return np.array(query_embedding,float).reshape(1, -1)

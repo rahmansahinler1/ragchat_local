@@ -126,8 +126,8 @@ class ReadingFunctions:
             return
         else:
             table_list =  []
-            reconsracted_table = ""
             for table in tabs.tables:
+                reconsracted_table = ""
                 table_extract = table.extract()
                 for sublist in table_extract:
                     filtered = [str(item).replace('\n', ' ').strip() for item in sublist if item is not None]

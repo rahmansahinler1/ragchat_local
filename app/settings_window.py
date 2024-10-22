@@ -206,11 +206,13 @@ class Window(tk.Toplevel):
             try:
                 index_object = self.processor.indf.load_index(index_path=index_path)
                 index_object_filtered = self.processor.index_filter(index_object,date = self.filter_date())
-                globals.index = self.processor.create_index(embeddings=index_object_filtered["embeddings"])
-                globals.table_index = self.processor.create_index(embeddings=index_object_filtered["table_embeddings"])
+                globals.index = self.processor.create_index(embeddings=index_object_filtered["embeddings"],index_type="flat")
+                globals.table_index = self.processor.create_index(embeddings=index_object_filtered["table_embeddings"],index_type="IP")
                 globals.files = index_object_filtered["file_path"]
                 globals.file_sentence_amount = index_object_filtered["file_sentence_amount"]
+                globals.file_table_amount = index_object_filtered["file_table_amount"]
                 globals.sentences = index_object_filtered["sentences"]
+                globals.tables = index_object_filtered["file_tables"]
                 globals.is_header = index_object_filtered["is_header"]
             except FileNotFoundError:
                 messagebox.showerror("Error!", "No file registered database under this domain. Please insert one and click <run file detection> or run the ragchat again!")

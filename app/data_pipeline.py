@@ -93,10 +93,12 @@ class FileProcessor:
     def create_index(
             self,
             embeddings: np.ndarray,
-            index_type: str = "flat"
+            index_type: str
         ):
         if index_type == "flat":
             index = self.indf.create_flat_index(embeddings=embeddings)
+        elif index_type == "IP":
+            index = self.indf.create_IP_index(embeddings=embeddings)
         return index
 
 
@@ -308,6 +310,7 @@ class FileProcessor:
         original_query = splitted_queries[0]
         dict_resource = {}
         boost = self.search_index_header(query=original_query)
+        self.search_index_table(query=original_query)
         for i,query in enumerate(splitted_queries):
             if(query=="\n" or query=="\n\n" or query=="no response" or query==""):
                 continue
@@ -389,7 +392,7 @@ class FileProcessor:
         headers = [globals.sentences[header_index] for header_index in header_indexes]
 
         header_embeddings = self.ef.create_vector_embeddings_from_sentences(sentences=headers)
-        index_header = self.create_index(embeddings=header_embeddings)
+        index_header = self.create_index(embeddings=header_embeddings,index_type="flat")
 
         D,I = index_header.search(self.ef.create_vector_embedding_from_query(original_query),10)
         filtered_header_indexes = sorted([header_index for index, header_index in enumerate(I[0]) if D[0][index] < 0.50])
@@ -401,6 +404,13 @@ class FileProcessor:
             except IndexError as e:
                 print(f"List is out of range {e}")
         return boost
+
+    def search_index_table(self, query):
+        original_query = query.split('\n')[0]
+        query_vector_table = self.ef.create_table_embeddings_from_query(original_query)
+
+        S,I = globals.table_index.search(query_vector_table,10)
+        filtered_header_indexes = [table_index for index, table_index in enumerate(I[0]) if S[0][index] > 0.60]
 
     def create_dynamic_context(self, sentences):
         context = ""

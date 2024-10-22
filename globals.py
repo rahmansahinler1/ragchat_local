@@ -5,3 +5,5 @@ sentences = None
 index = None
 is_header = None
 table_index = None
+tables = None
+file_table_amount = None
