@@ -295,12 +295,12 @@ class FileProcessor:
                     else:
                         dict_resource[indexes] = [D[0][j]]
         try:
-            sorted_index_list = self.sort_resources(dict_resource)
-            indexes = np.array(list(sorted_index_list.keys()))
-            distances = np.array(list(sorted_index_list.values()))
-            boosted_distances = distances * boost
-            sorted_distance = [i for i, _ in sorted(enumerate(boosted_distances), key=lambda x: x[1], reverse=False)]
-            sorted_sentences = indexes[sorted_distance[:10]]
+            avg_index_list = self.avg_resources(dict_resource)
+            for key in avg_index_list:
+                avg_index_list[key] *= boost[key]
+            sorted_dict = dict(sorted(avg_index_list.items(), key=lambda item: item[1]))
+            indexes = np.array(list(sorted_dict.keys()))
+            sorted_sentences = indexes[:10]
         except ValueError as e:
             original_query = "Please provide meaningful query:"
             print(f"{original_query, {e}}")
@@ -388,13 +388,12 @@ class FileProcessor:
             context += f"Context{i}: {sentence} Confidence: {(len(sentences)-i+1)/len(sentences)} \n "
         return context
 
-    def sort_resources(self, resources_dict):
+    def avg_resources(self, resources_dict):
         for key, value in resources_dict.items():
             value_mean = sum(value) / len(value)
             value_coefficient = value_mean - len(value) * 0.0025
             resources_dict[key] = value_coefficient
-        sorted_dict = dict(sorted(resources_dict.items(), key=lambda item: item[1]))
-        return sorted_dict
+        return resources_dict
 
     def widen_sentences(self, window_size: int, convergence_vector: np.ndarray):  
         widen_sentences = []
