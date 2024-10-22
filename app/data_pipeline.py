@@ -270,7 +270,7 @@ class FileProcessor:
         splitted_queries = splitted_queries[:6]
         original_query = splitted_queries[0]
         dict_resource = {}
-        sorted_index_list = []
+        avg_index_list = []
         boost = self.search_file_header_index(query=original_query)
         for i,query in enumerate(splitted_queries):
             if(query=="\n" or query=="\n\n" or query=="no response" or query==""):
@@ -283,13 +283,13 @@ class FileProcessor:
                         dict_resource[indexes].append(D[0][j])
                     else:
                         dict_resource[indexes] = [D[0][j]]
-        try: 
-            sorted_index_list = self.sort_resources(dict_resource)
-            indexes = np.array(list(sorted_index_list.keys()))
-            distances = np.array(list(sorted_index_list.values()))
-            boosted_distances = distances * boost
-            sorted_distance = [i for i, _ in sorted(enumerate(boosted_distances), key=lambda x: x[1], reverse=False)]
-            sorted_sentences = indexes[sorted_distance[:10]]
+        try:
+            avg_index_list = self.avg_resources(dict_resource)
+            for key in avg_index_list:
+                avg_index_list[key] *= boost[key]
+            sorted_dict = dict(sorted(avg_index_list.items(), key=lambda item: item[1]))
+            indexes = np.array(list(sorted_dict.keys()))
+            sorted_sentences = indexes[:10]
         except ValueError as e:
             original_query = "Please provide meaningful query:"
             print(f"{original_query, {e}}")
@@ -303,7 +303,6 @@ class FileProcessor:
                 widen_sentences = self.widen_sentences(window_size=1, convergence_vector=sorted_sentences[i:i+1])
             all_widen_sentences.extend(widen_sentences)
         context = self.create_dynamic_context(sentences=all_widen_sentences)
-        context = self.create_dynamic_context(sentences=widen_sentences)
         resources = self.extract_resources(convergence_vector=sorted_sentences)
         resources_text = "- References in " + globals.selected_domain + ":"
         for i, resource in enumerate(resources):
@@ -350,14 +349,20 @@ class FileProcessor:
         file_header_embeddings = self.ef.create_vector_embeddings_from_sentences(globals.file_headers)
         file_header_index = self.create_index(file_header_embeddings)
 
-        D,I = file_header_index.search(self.ef.create_vector_embedding_from_query(query=original_query),2)
+        D,I = file_header_index.search(self.ef.create_vector_embedding_from_query(query=original_query),len(globals.file_headers))
         file_indexes = [file_index for index, file_index in enumerate(I[0]) if D[0][index] < 0.40]
         if file_indexes:
-            for index in file_indexes:
+            for i, index in enumerate(file_indexes):
                 try:
+                    print(str(D[0][i]) + " " + globals.file_headers[index])
                     start = sum(sum(page_sentence_amount) for page_sentence_amount in globals.file_sentence_amount[:index])
                     end = start + sum(globals.file_sentence_amount[index])
-                    boost[start:end] *= 0.9
+                    if i == 0:
+                        boost[start:end] *= 0.7
+                    elif i == 1:
+                        boost[start:end] *= 0.8
+                    else:
+                        boost[start:end] *= 0.9
                 except IndexError as e:
                     print(f"List is out of range {e}")
         return boost
@@ -375,13 +380,12 @@ class FileProcessor:
             context += f"Context{i}: {sentence} Confidence: {(len(sentences)-i+1)/len(sentences)} \n "
         return context
 
-    def sort_resources(self, resources_dict):
+    def avg_resources(self, resources_dict):
         for key, value in resources_dict.items():
             value_mean = sum(value) / len(value)
             value_coefficient = value_mean - len(value) * 0.0025
             resources_dict[key] = value_coefficient
-        sorted_dict = dict(sorted(resources_dict.items(), key=lambda item: item[1]))
-        return sorted_dict
+        return resources_dict
 
     def widen_sentences(self, window_size: int, convergence_vector: np.ndarray):  
         widen_sentences = []
