@@ -36,7 +36,7 @@ class ChatbotFunctions:
 
             Talimatlar:
             1. Size her biri birkaç cümle içeren bağlam penceresi verilecektir.
-            2. İlk bağlam en önemlisi, sonraki her bağlam ise azalan bir öneme sahip olup, son bağlam en az önemli olandır
+            2. Her bağlam cümlesinin sonuna bir güven düzeyi sayısı eklenmiştir; daha yüksek güven sayısı, yanıt oluştururken daha yüksek öncelik anlamına gelir. Güven düzeyleri 0 ile 1 arasında olacaktır.
             3. Tüm bağlam pencerelerini dikkatle okuyun.
             4. Kullanıcının hangi özel bilgiyi aradığını anlamak için kullanıcının sorgusunu analiz edin.
             5. Bağlam pencerelerinden ilgili bilgileri arayın ve çıkarın.
@@ -63,7 +63,7 @@ class ChatbotFunctions:
 
             Instructions:
             1. You will be provided with context windows, each containing several sentences.
-            2. The first context is the most important, and each subsequent context holds decreasing importance, with the last context being the least important.
+            2. There are confidence level specified as numbers after each context sentence, higher confidence number means higher priority in creating answer. Create the answer according to confidence levels. Confidence levels are going to be between 0 and 1.
             3. Carefully read all context windows.
             4. Analyze the user's query to understand what specific information they are looking for.
             5. Search for and extract the relevant information from the context windows according to the hierarchy and ensure your response reflects this priority.

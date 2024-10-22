@@ -372,7 +372,7 @@ class FileProcessor:
     def create_dynamic_context(self, sentences):
         context = ""
         for i, sentence in enumerate(sentences, 1):
-            context += f"Context{i}: {sentence}\n"
+            context += f"Context{i}: {sentence} Confidence: {(len(sentences)-i+1)/len(sentences)} \n "
         return context
 
     def sort_resources(self, resources_dict):
