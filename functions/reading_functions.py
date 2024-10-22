@@ -75,8 +75,8 @@ class ReadingFunctions:
                             file_data["page_sentence_amount"].append(sentences_in_this_page)
                             previous_sentence_count = current_sentence_count
                         file_data["file_tables"].extend(file_tables)
-                        table_amount = len(file_tables)
-                        file_data["file_tables"].extend(table_amount)
+                        table_amount = len(file_data["file_tables"])
+                        file_data["file_table_amount"].append(table_amount)
                     except TypeError as e:
                         raise TypeError(f"PDF text could not extracted!: {e}")
             elif file_extension == '.docx':
