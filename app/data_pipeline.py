@@ -310,7 +310,6 @@ class FileProcessor:
         original_query = splitted_queries[0]
         dict_resource = {}
         boost = self.search_index_header(query=original_query)
-        self.search_index_table(query=original_query)
         for i,query in enumerate(splitted_queries):
             if(query=="\n" or query=="\n\n" or query=="no response" or query==""):
                 continue
@@ -335,6 +334,7 @@ class FileProcessor:
 
         widen_sentences = self.widen_sentences(window_size=1, convergence_vector=sorted_sentences)
         context = self.create_dynamic_context(sentences=widen_sentences)
+        table_context = self.search_index_table(query=original_query)
         resources = self.extract_resources(convergence_vector=sorted_sentences)
         resources_text = "- References in " + globals.selected_domain + ":"
         for i, resource in enumerate(resources):
@@ -343,7 +343,7 @@ class FileProcessor:
                 - file Name: {resource["file_name"].split("/")[-1]}
                 - Page Number: {resource["page"]}
             """)
-        return self.cf.response_generation(query=original_query, context=context), resources_text
+        return self.cf.response_generation(query=original_query, context=context ,table_context=table_context), resources_text
 
     def file_change_to_memory(self, change: Dict):
         # Create embeddings
@@ -410,7 +410,11 @@ class FileProcessor:
         query_vector_table = self.ef.create_table_embeddings_from_query(original_query)
 
         S,I = globals.table_index.search(query_vector_table,10)
-        filtered_header_indexes = [table_index for index, table_index in enumerate(I[0]) if S[0][index] > 0.60]
+        filtered_table_indexes = [table_index for index, table_index in enumerate(I[0]) if S[0][index] > 0.60]
+        table_list = [globals.tables[index] for index in filtered_table_indexes]
+
+        table_contexes = self.create_dynamic_context(table_list)
+        return table_contexes
 
     def create_dynamic_context(self, sentences):
         context = ""

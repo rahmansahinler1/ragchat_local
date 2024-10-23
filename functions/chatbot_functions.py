@@ -28,7 +28,7 @@ class ChatbotFunctions:
             [Fifth semantically similar query.]
             """)
 
-    def _prompt_with_context_builder(self, query, context, lang):
+    def _prompt_with_context_builder(self, query, context, table_context, lang):
         if lang == "tr":
             return textwrap.dedent(f"""
             Siz, verilen metinden belirli bilgileri çıkarmada uzmanlaşmış bir yapay zeka asistanısınız.
@@ -54,6 +54,7 @@ class ChatbotFunctions:
 
             Bağlam Pencereleri:
             {context}
+            {table_context}
 
             Kullanıcı Sorgusu: {query}
             """)
@@ -63,7 +64,7 @@ class ChatbotFunctions:
             Your task is to analyze the given context windows and extract relevant data based on the user's query.
 
             Instructions:
-            1. You will be provided with context windows, each containing several sentences.
+            1. You will be provided with context windows and table context windows, each containing several sentences and tables.
             2. The first context is the most important, and each subsequent context holds decreasing importance, with the last context being the least important.
             3. Carefully read all context windows.
             4. Analyze the user's query to understand what specific information they are looking for.
@@ -81,15 +82,17 @@ class ChatbotFunctions:
 
             Context Windows:
             {context}
+            Table Context Windows:
+            {table_context}
 
             User Query: {query}
             """)
         return prompt
 
-    def response_generation(self, query, context):
+    def response_generation(self, query, context, table_context):
         # Load chat model
         lang = self.detect_language(query=query)
-        prompt = self._prompt_with_context_builder(query=query, context=context, lang=lang)
+        prompt = self._prompt_with_context_builder(query=query, context=context, table_context=table_context, lang=lang)
         
         # Generate response
         response = self.client.chat.completions.create(
