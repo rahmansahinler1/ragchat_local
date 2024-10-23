@@ -101,6 +101,7 @@ class ReadingFunctions:
                 blocks = page.get_text("dict")["blocks"]
                 text_blocks = [block for block in blocks if block["type"] == 0]
                 for block in text_blocks:
+                    if "lines" in block and len(block["lines"]) >= 1 and len(block["lines"]) < 5:
                         for line in block["lines"]:
                             for span in line["spans"]:
                                 text = span["text"]
