@@ -349,7 +349,7 @@ class FileProcessor:
         # Create embeddings
         file_data = self.rf.read_file(file_path=change["file_path"])
         file_embeddings = self.ef.create_vector_embeddings_from_sentences(sentences=file_data["sentences"])
-        file_tables_embeddings = self.ef.create_table_embeddings_from_file_tables(tables=file_data["file_tables"])
+        file_tables_embeddings = self.ef.create_vector_embeddings_from_sentences(sentences=file_data["file_tables"])
 
         # Detect changed domain
         pattern = r'domain\d+'
@@ -407,10 +407,9 @@ class FileProcessor:
 
     def search_index_table(self, query):
         original_query = query.split('\n')[0]
-        query_vector_table = self.ef.create_table_embeddings_from_query(original_query)
 
-        S,I = globals.table_index.search(query_vector_table,10)
-        filtered_table_indexes = [table_index for index, table_index in enumerate(I[0]) if S[0][index] > 0.60]
+        D,I = globals.table_index.search(self.ef.create_vector_embedding_from_query(original_query),10)
+        filtered_table_indexes = [table_index for index, table_index in enumerate(I[0]) if D[0][index] < 0.35]
         table_list = [globals.tables[index] for index in filtered_table_indexes]
 
         table_contexes = self.create_dynamic_context(table_list)

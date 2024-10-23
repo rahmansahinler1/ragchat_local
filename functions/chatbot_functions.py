@@ -35,7 +35,7 @@ class ChatbotFunctions:
             Göreviniz, verilen bağlam pencerelerini analiz etmek ve kullanıcının sorgusu temelinde ilgili verileri çıkarmaktır.
 
             Talimatlar:
-            1. Size her biri birkaç cümle içeren bağlam penceresi verilecektir.
+            1. Size her biri birkaç cümle ve tablo içeren bağlam penceresi verilecektir.
             2. İlk bağlam en önemlisi, sonraki her bağlam ise azalan bir öneme sahip olup, son bağlam en az önemli olandır
             3. Tüm bağlam pencerelerini dikkatle okuyun.
             4. Kullanıcının hangi özel bilgiyi aradığını anlamak için kullanıcının sorgusunu analiz edin.
@@ -54,6 +54,7 @@ class ChatbotFunctions:
 
             Bağlam Pencereleri:
             {context}
+            Tablo bağlam Penceleri:
             {table_context}
 
             Kullanıcı Sorgusu: {query}
