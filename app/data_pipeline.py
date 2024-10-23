@@ -266,13 +266,18 @@ class FileProcessor:
             user_query: np.ndarray,
     ):
         all_widen_sentences = []
-        splitted_queries = user_query.split('\n')
-        splitted_queries = splitted_queries[:6]
-        original_query = splitted_queries[0]
         dict_resource = {}
         avg_index_list = []
+        if user_query[0][0] == "[":
+            processed_queries = self.query_preprocessing(user_query)
+            original_query = processed_queries[0]
+        else:
+            processed_queries = user_query.split("\n")
+            processed_queries = processed_queries[:6]
+            original_query = processed_queries[0]
+       
         boost = self.search_file_header_index(query=original_query)
-        for i,query in enumerate(splitted_queries):
+        for i,query in enumerate(processed_queries):
             if(query=="\n" or query=="\n\n" or query=="no response" or query==""):
                 continue
             else:
@@ -343,6 +348,7 @@ class FileProcessor:
 
     # Search on file header function
     def search_file_header_index(self,query):
+        limit = 0.45
         boost = np.ones(len(globals.sentences))
         original_query = query.split('\n')[0]
 
@@ -350,11 +356,14 @@ class FileProcessor:
         file_header_index = self.create_index(file_header_embeddings)
 
         D,I = file_header_index.search(self.ef.create_vector_embedding_from_query(query=original_query),len(globals.file_headers))
-        file_indexes = [file_index for index, file_index in enumerate(I[0]) if D[0][index] < 0.40]
+        avg_distances = sum(D[0])/len(D[0])
+        if avg_distances < limit:
+            file_indexes = [file_index for index, file_index in enumerate(I[0]) if D[0][index] < avg_distances]
+        else:
+            file_indexes = [file_index for index, file_index in enumerate(I[0]) if D[0][index] < limit]
         if file_indexes:
             for i, index in enumerate(file_indexes):
                 try:
-                    print(str(D[0][i]) + " " + globals.file_headers[index])
                     start = sum(sum(page_sentence_amount) for page_sentence_amount in globals.file_sentence_amount[:index])
                     end = start + sum(globals.file_sentence_amount[index])
                     if i == 0:
@@ -367,6 +376,17 @@ class FileProcessor:
                     print(f"List is out of range {e}")
         return boost
 
+    def query_preprocessing(self, user_query):
+        clean_query_list = []
+        splitted_queries = user_query.split('\n')
+        for single_query in splitted_queries:
+            if single_query[0] == "[" and single_query[-1] == "]":
+                clean_query = single_query.split(":")[1]
+                clean_query = clean_query[1:-1]
+                clean_query_list.append(clean_query)
+            else:
+                clean_query_list.append(clean_query)
+        return clean_query_list
 
     def extract_embeddings_from_index(self, index):
         num_vectors = index.ntotal
