@@ -165,7 +165,6 @@ class App(tk.Tk):
 
     def generate_response(self, user_query):
         if globals.index:
-
             response, resource_text = self.processor.search_index(user_query=user_query)
             answer = f"{response}\n{resource_text}"
             self.display_message(message=answer, sender="system")
