@@ -416,12 +416,7 @@ class FileProcessor:
                 try:
                     start = sum(sum(page_sentence_amount) for page_sentence_amount in globals.file_sentence_amount[:index])
                     end = start + sum(globals.file_sentence_amount[index])
-                    if i == 0:
-                        boost[start:end] *= 0.7
-                    elif i == 1:
-                        boost[start:end] *= 0.8
-                    else:
-                        boost[start:end] *= 0.9
+                    boost[start:end] *= 0.9
                 except IndexError as e:
                     print(f"List is out of range {e}")
         return boost
