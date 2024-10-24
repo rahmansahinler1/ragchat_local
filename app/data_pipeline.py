@@ -119,6 +119,7 @@ class FileProcessor:
                 index_object["file_sentence_amount"].extend(sentence_amount for sentence_amount in value["file_sentence_amount"])
                 index_object["sentences"].extend(sentence for sentence in value["sentences"])
                 index_object["date"].extend(date for date in value["date"])
+                index_object["file_header"].extend(date for date in value["file_header"])
                 index_object["page_num"].extend(page for page in value["page_num"])
                 index_object["block_num"].extend(block for block in value["block_num"])
                 index_object["is_header"].extend(header for header in value["is_header"])
@@ -205,6 +206,7 @@ class FileProcessor:
                     index_object["embeddings"] = np.delete(index_object["embeddings"], np.arange(change_index_start, change_index_finish), axis=0)
                     index_object["file_path"].pop(file_path_index)
                     index_object["date"].pop(file_path_index)
+                    index_object["file_header"].pop(file_path_index)
                     index_object["file_sentence_amount"].pop(file_path_index)
                    
                    #Removing pickle if file is empty
@@ -231,6 +233,7 @@ class FileProcessor:
                 "file_sentence_amount": [],
                 "sentences" : [],
                 "date" : [],
+                "file_header" : [],
                 "is_header": [],
                 "page_num": [],
                 "block_num": [],
@@ -248,6 +251,7 @@ class FileProcessor:
                             filtered_index["file_path"].append(index_object["file_path"][i])
                             filtered_index["file_sentence_amount"].append(index_object["file_sentence_amount"][i])
                             filtered_index["date"].append(index_object["date"][i])
+                            filtered_index["file_header"].append(index_object["file_header"][i])
                         except FileNotFoundError as e:
                             raise FileExistsError(f"Index file could not be found for filtering!: {e}")
                         
@@ -278,12 +282,19 @@ class FileProcessor:
             user_query: np.ndarray,
     ):
         all_widen_sentences = []
-        splitted_queries = user_query.split('\n')
-        splitted_queries = splitted_queries[:6]
-        original_query = splitted_queries[0]
         dict_resource = {}
+        if user_query[0][0] == "[":
+            processed_queries = self.query_preprocessing(user_query)
+            original_query = processed_queries[0]
+        else:
+            processed_queries = user_query.split("\n")
+            processed_queries = processed_queries[:6]
+            original_query = processed_queries[0]
+
         boost = self.search_index_header(query=original_query)
-        for i,query in enumerate(splitted_queries):
+        boost_file_header = self.search_file_header_index(query=original_query)
+        boost_combined = 0.75 * boost + 0.25 * boost_file_header
+        for i,query in enumerate(processed_queries):
             if(query=="\n" or query=="\n\n" or query=="no response" or query==""):
                 continue
             else:
@@ -297,7 +308,7 @@ class FileProcessor:
         try:
             avg_index_list = self.avg_resources(dict_resource)
             for key in avg_index_list:
-                avg_index_list[key] *= boost[key]
+                avg_index_list[key] *= boost_combined[key]
             sorted_dict = dict(sorted(avg_index_list.items(), key=lambda item: item[1]))
             indexes = np.array(list(sorted_dict.keys()))
             sorted_sentences = indexes[:10]
@@ -313,6 +324,7 @@ class FileProcessor:
             else:
                 widen_sentences = self.widen_sentences(window_size=1, convergence_vector=sorted_sentences[i:i+1])
             all_widen_sentences.extend(widen_sentences)
+
         context = self.create_dynamic_context(sentences=all_widen_sentences)
         resources = self.extract_resources(convergence_vector=sorted_sentences)
         resources_text = "- References in " + globals.selected_domain + ":"
@@ -327,6 +339,7 @@ class FileProcessor:
     def file_change_to_memory(self, change: Dict):
         # Create embeddings
         file_data = self.rf.read_file(file_path=change["file_path"])
+        self.rf._extract_file_header(file_path=change["file_path"],file_data=file_data)
         file_embeddings = self.ef.create_vector_embeddings_from_sentences(sentences=file_data["sentences"])
 
         # Detect changed domain
@@ -339,6 +352,7 @@ class FileProcessor:
                 self.change_dict[domain]["file_sentence_amount"].append(file_data["page_sentence_amount"])
                 self.change_dict[domain]["sentences"].extend(file_data["sentences"])
                 self.change_dict[domain]["date"].extend(file_data["date"])
+                self.change_dict[domain]["file_header"].extend(file_data["file_header"])
                 self.change_dict[domain]["page_num"].extend(file_data["page_num"])
                 self.change_dict[domain]["block_num"].extend(file_data["block_num"])
                 self.change_dict[domain]["is_header"].extend(file_data["is_header"])
@@ -349,6 +363,7 @@ class FileProcessor:
                     "file_sentence_amount": [file_data["page_sentence_amount"]],
                     "sentences": file_data["sentences"],
                     "date" : file_data["date"],
+                    "file_header" : file_data["file_header"],
                     "embeddings": file_embeddings,
                     "page_num" : file_data["page_num"],
                     "block_num" : file_data["block_num"],
@@ -381,6 +396,47 @@ class FileProcessor:
             except IndexError as e:
                 print(f"List is out of range {e}")
         return boost
+
+    # Search on file header function
+    def search_file_header_index(self,query):
+        boost = np.ones(len(globals.sentences))
+        original_query = query.split('\n')[0]
+
+        file_header_embeddings = self.ef.create_vector_embeddings_from_sentences(globals.file_headers)
+        file_header_index = self.create_index(file_header_embeddings)
+
+        D,I = file_header_index.search(self.ef.create_vector_embedding_from_query(query=original_query),len(globals.file_headers))
+        if sum(D[0])/len(D[0]) < 0.45:
+            file_indexes = [file_index for index, file_index in enumerate(I[0]) if D[0][index] < sum(D[0])/len(D[0])]
+        else:
+            file_indexes = [file_index for index, file_index in enumerate(I[0]) if D[0][index] < 0.45]
+
+        if file_indexes:
+            for i, index in enumerate(file_indexes):
+                try:
+                    start = sum(sum(page_sentence_amount) for page_sentence_amount in globals.file_sentence_amount[:index])
+                    end = start + sum(globals.file_sentence_amount[index])
+                    if i == 0:
+                        boost[start:end] *= 0.7
+                    elif i == 1:
+                        boost[start:end] *= 0.8
+                    else:
+                        boost[start:end] *= 0.9
+                except IndexError as e:
+                    print(f"List is out of range {e}")
+        return boost
+    
+    def query_preprocessing(self, user_query):
+        clean_query_list = []
+        splitted_queries = user_query.split('\n')
+        for single_query in splitted_queries:
+            if single_query[0] == "[" and single_query[-1] == "]":
+                clean_query = single_query.split(":")[1]
+                clean_query = clean_query[1:-1]
+                clean_query_list.append(clean_query)
+            else:
+                clean_query_list.append(clean_query)
+        return clean_query_list
 
     def create_dynamic_context(self, sentences):
         context = ""
