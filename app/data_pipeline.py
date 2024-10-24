@@ -267,7 +267,6 @@ class FileProcessor:
     ):
         all_widen_sentences = []
         dict_resource = {}
-        avg_index_list = []
         if user_query[0][0] == "[":
             processed_queries = self.query_preprocessing(user_query)
             original_query = processed_queries[0]
@@ -307,6 +306,7 @@ class FileProcessor:
             else:
                 widen_sentences = self.widen_sentences(window_size=1, convergence_vector=sorted_sentences[i:i+1])
             all_widen_sentences.extend(widen_sentences)
+
         context = self.create_dynamic_context(sentences=all_widen_sentences)
         resources = self.extract_resources(convergence_vector=sorted_sentences)
         resources_text = "- References in " + globals.selected_domain + ":"
@@ -348,7 +348,6 @@ class FileProcessor:
 
     # Search on file header function
     def search_file_header_index(self,query):
-        limit = 0.45
         boost = np.ones(len(globals.sentences))
         original_query = query.split('\n')[0]
 
@@ -356,11 +355,11 @@ class FileProcessor:
         file_header_index = self.create_index(file_header_embeddings)
 
         D,I = file_header_index.search(self.ef.create_vector_embedding_from_query(query=original_query),len(globals.file_headers))
-        avg_distances = sum(D[0])/len(D[0])
-        if avg_distances < limit:
-            file_indexes = [file_index for index, file_index in enumerate(I[0]) if D[0][index] < avg_distances]
+        if sum(D[0])/len(D[0]) < 0.45:
+            file_indexes = [file_index for index, file_index in enumerate(I[0]) if D[0][index] < sum(D[0])/len(D[0])]
         else:
-            file_indexes = [file_index for index, file_index in enumerate(I[0]) if D[0][index] < limit]
+            file_indexes = [file_index for index, file_index in enumerate(I[0]) if D[0][index] < 0.45]
+
         if file_indexes:
             for i, index in enumerate(file_indexes):
                 try:
