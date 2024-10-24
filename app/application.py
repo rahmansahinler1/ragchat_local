@@ -3,6 +3,7 @@ from tkinter import *
 from tkinter import scrolledtext
 from tkinter import font as tkfont
 from PIL import Image, ImageTk
+import numpy as np
 
 from pathlib import Path
 from tkinter import messagebox
@@ -164,6 +165,7 @@ class App(tk.Tk):
 
     def generate_response(self, user_query):
         if globals.index:
+
             response, resource_text = self.processor.search_index(user_query=user_query)
             answer = f"{response}\n{resource_text}"
             self.display_message(message=answer, sender="system")
@@ -191,7 +193,6 @@ class App(tk.Tk):
             return "break"
         messagebox.showerror("Error!", "Please first select your resource folder in the button on the top right!")
         return "break"
-
 
     def handle_shift_enter(self, event):
         return

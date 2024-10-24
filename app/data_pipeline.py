@@ -62,7 +62,7 @@ class FileDetector:
             else:
                 changes["insert"].append({"file_path": data["file_path"], "date_modified": data["date_modified"]})
                 memory_data.append(data)
-        
+
         # Check for deletion
         for i, data in enumerate(memory_data):
             if data not in current_file_data:
@@ -99,7 +99,7 @@ class FileProcessor:
             index = self.indf.create_flat_index(embeddings=embeddings)
         return index
 
-    
+
     def index_insert(
         self,
         changes: List[Dict[str, str]],
@@ -119,6 +119,9 @@ class FileProcessor:
                 index_object["file_sentence_amount"].extend(sentence_amount for sentence_amount in value["file_sentence_amount"])
                 index_object["sentences"].extend(sentence for sentence in value["sentences"])
                 index_object["date"].extend(date for date in value["date"])
+                index_object["page_num"].extend(page for page in value["page_num"])
+                index_object["block_num"].extend(block for block in value["block_num"])
+                index_object["is_header"].extend(header for header in value["is_header"])
                 index_object["embeddings"] = np.vstack((index_object["embeddings"], value["embeddings"]))
                 
                 self.indf.save_index(
@@ -129,7 +132,7 @@ class FileProcessor:
                 self.indf.save_index(index_object=value, save_path=index_path)
         
         self.clean_processor()
-    
+
     def index_update(
         self,
         changes: List[Dict[str, str]],
@@ -156,13 +159,16 @@ class FileProcessor:
                     change_index_start = sum(sum(page_sentence_amount) for page_sentence_amount in index_object["file_sentence_amount"][:file_index]) + diff
                     change_index_finish = change_index_start + sum(index_object["file_sentence_amount"][file_index]) + diff
                     index_object["sentences"][change_index_start:change_index_finish] = value["sentences"][cumulative_index: sum(value["file_sentence_amount"][i])]
+                    index_object["is_header"][change_index_start:change_index_finish] = value["is_header"][cumulative_index: sum(value["file_sentence_amount"][i])]
+                    index_object["page_num"][change_index_start:change_index_finish] = value["page_num"][cumulative_index: sum(value["file_sentence_amount"][i])]
+                    index_object["block_num"][change_index_start:change_index_finish] = value["block_num"][cumulative_index: sum(value["file_sentence_amount"][i])]
                     index_object["embeddings"][change_index_start:change_index_finish] = value["embeddings"][cumulative_index: sum(value["file_sentence_amount"][i])]
                     # Index differences for next iteration
                     diff = len(value["sentences"][cumulative_index: sum(value["file_sentence_amount"][i])]) - len(index_object["sentences"][change_index_start:change_index_finish])
                     cumulative_index = sum(value["file_sentence_amount"][i])
                 # Update sentence amounts list
                 for i, file_index in enumerate(file_path_indexes):
-                    index_object["file_sentence_amount"][file_index] = value["file_sentence_amount"][i]            
+                    index_object["file_sentence_amount"][file_index] = value["file_sentence_amount"][i]
                 # Save index object
                 self.indf.save_index(
                     index_object=index_object,
@@ -193,6 +199,9 @@ class FileProcessor:
                     change_index_start = sum(sum(page_sentence_amount) for page_sentence_amount in index_object["file_sentence_amount"][:file_path_index])
                     change_index_finish = change_index_start + sum(index_object["file_sentence_amount"][file_path_index])
                     del index_object["sentences"][change_index_start:change_index_finish]
+                    del index_object["is_header"][change_index_start:change_index_finish]
+                    del index_object["page_num"][change_index_start:change_index_finish]
+                    del index_object["block_num"][change_index_start:change_index_finish]
                     index_object["embeddings"] = np.delete(index_object["embeddings"], np.arange(change_index_start, change_index_finish), axis=0)
                     index_object["file_path"].pop(file_path_index)
                     index_object["date"].pop(file_path_index)
@@ -214,7 +223,7 @@ class FileProcessor:
     def index_filter(
             self,
             index_object,
-            date
+            date = None
         ):
         shape = index_object["embeddings"].shape
         filtered_index = {
@@ -222,6 +231,9 @@ class FileProcessor:
                 "file_sentence_amount": [],
                 "sentences" : [],
                 "date" : [],
+                "is_header": [],
+                "page_num": [],
+                "block_num": [],
                 "embeddings": np.empty(shape=shape)
         }
         file_path_indexes = []
@@ -245,6 +257,10 @@ class FileProcessor:
                     sentence_end =  sentence_start + sum(index_object["file_sentence_amount"][index])
 
                     filtered_index["sentences"].extend(index_object["sentences"][sentence_start:sentence_end])
+                    filtered_index["is_header"].extend(index_object["is_header"][sentence_start:sentence_end])
+                    filtered_index["page_num"].extend(index_object["page_num"][sentence_start:sentence_end])
+                    filtered_index["block_num"].extend(index_object["block_num"][sentence_start:sentence_end])
+                    filtered_index["boost"].extend(index_object["boost"][sentence_start:sentence_end])
                     filtered_index["embeddings"] = np.vstack((index_object["embeddings"][sentence_start:sentence_end],filtered_index["embeddings"]))
 
                 except FileNotFoundError as e:
@@ -259,28 +275,46 @@ class FileProcessor:
 
     def search_index(
             self,
-            user_query: np.ndarray
+            user_query: np.ndarray,
     ):
+        all_widen_sentences = []
         splitted_queries = user_query.split('\n')
+        splitted_queries = splitted_queries[:6]
         original_query = splitted_queries[0]
-        index_set = set()
-        unique_index_list = []
-        for query in splitted_queries:
-            if(query=="\n" or query=="no response"):
+        dict_resource = {}
+        boost = self.search_index_header(query=original_query)
+        for i,query in enumerate(splitted_queries):
+            if(query=="\n" or query=="\n\n" or query=="no response" or query==""):
                 continue
             else:
                 query_vector = self.ef.create_vector_embedding_from_query(query=query)
-                _, I = globals.index.search(query_vector, 3)
-                index_set.update(I[0])
-        try: 
-            unique_index_list = list(index_set)
+                D, I = globals.index.search(query_vector, len(globals.sentences))
+                for j, indexes in enumerate(I[0]):
+                    if indexes in dict_resource:
+                        dict_resource[indexes].append(D[0][j])
+                    else:
+                        dict_resource[indexes] = [D[0][j]]
+        try:
+            avg_index_list = self.avg_resources(dict_resource)
+            for key in avg_index_list:
+                avg_index_list[key] *= boost[key]
+            sorted_dict = dict(sorted(avg_index_list.items(), key=lambda item: item[1]))
+            indexes = np.array(list(sorted_dict.keys()))
+            sorted_sentences = indexes[:10]
         except ValueError as e:
             original_query = "Please provide meaningful query:"
-            print(f"{original_query: {e}}")
-            
-        widen_sentences = self.widen_sentences(window_size=1, convergence_vector=unique_index_list)
-        context = self.create_dynamic_context(sentences=widen_sentences)
-        resources = self.extract_resources(convergence_vector=unique_index_list)
+            print(f"{original_query, {e}}")
+
+        for i in range(len(sorted_sentences)):
+            if i == 0:
+                widen_sentences = self.widen_sentences(window_size=3, convergence_vector=sorted_sentences[i:i+1])
+            elif i in range(1,4):
+                widen_sentences = self.widen_sentences(window_size=2, convergence_vector=sorted_sentences[i:i+1])
+            else:
+                widen_sentences = self.widen_sentences(window_size=1, convergence_vector=sorted_sentences[i:i+1])
+            all_widen_sentences.extend(widen_sentences)
+        context = self.create_dynamic_context(sentences=all_widen_sentences)
+        resources = self.extract_resources(convergence_vector=sorted_sentences)
         resources_text = "- References in " + globals.selected_domain + ":"
         for i, resource in enumerate(resources):
             resources_text += textwrap.dedent(f"""
@@ -289,7 +323,7 @@ class FileProcessor:
                 - Page Number: {resource["page"]}
             """)
         return self.cf.response_generation(query=original_query, context=context), resources_text
-    
+
     def file_change_to_memory(self, change: Dict):
         # Create embeddings
         file_data = self.rf.read_file(file_path=change["file_path"])
@@ -305,6 +339,9 @@ class FileProcessor:
                 self.change_dict[domain]["file_sentence_amount"].append(file_data["page_sentence_amount"])
                 self.change_dict[domain]["sentences"].extend(file_data["sentences"])
                 self.change_dict[domain]["date"].extend(file_data["date"])
+                self.change_dict[domain]["page_num"].extend(file_data["page_num"])
+                self.change_dict[domain]["block_num"].extend(file_data["block_num"])
+                self.change_dict[domain]["is_header"].extend(file_data["is_header"])
                 self.change_dict[domain]["embeddings"] = np.vstack((self.change_dict[domain]["embeddings"], file_embeddings))
             else:
                 self.change_dict[domain] = {
@@ -312,27 +349,61 @@ class FileProcessor:
                     "file_sentence_amount": [file_data["page_sentence_amount"]],
                     "sentences": file_data["sentences"],
                     "date" : file_data["date"],
-                    "embeddings": file_embeddings
+                    "embeddings": file_embeddings,
+                    "page_num" : file_data["page_num"],
+                    "block_num" : file_data["block_num"],
+                    "is_header" : file_data["is_header"],
                 }
 
-    def extract_embeddings_from_index(self, index):
-        num_vectors = index.ntotal
-        dimension = index.d
-        all_vectors = np.empty((num_vectors, dimension), dtype=np.float32)
-        return index.reconstruct_n(0, num_vectors, all_vectors)
+    # Boost most semanticaly similar headers sentences
+    def search_index_header(self, query):
+        boost = np.ones(len(globals.sentences))
+        original_query = query.split('\n')[0]
+
+        header_indexes = [index for index in range(len(globals.is_header)) if globals.is_header[index]]
+        headers = [globals.sentences[header_index] for header_index in header_indexes]
+
+        header_embeddings = self.ef.create_vector_embeddings_from_sentences(sentences=headers)
+        index_header = self.create_index(embeddings=header_embeddings)
+
+        D,I = index_header.search(self.ef.create_vector_embedding_from_query(original_query),10)
+        filtered_header_indexes = [header_index for index, header_index in enumerate(I[0]) if D[0][index] < 0.40]
+        for i,filtered_index in enumerate(filtered_header_indexes):
+            try:
+                start = header_indexes[filtered_index] + 1
+                end = header_indexes[filtered_index + 1]
+                if i == 0:
+                    boost[start:end] *= 0.7
+                elif i in range(1,3):
+                    boost[start:end] *= 0.8
+                else:
+                    boost[start:end] *= 0.9
+            except IndexError as e:
+                print(f"List is out of range {e}")
+        return boost
 
     def create_dynamic_context(self, sentences):
         context = ""
         for i, sentence in enumerate(sentences, 1):
-            context += f"Context{i}: {sentence}\n"
+            context += f"Context{i}: {sentence} Confidence: {(len(sentences)-i+1)/len(sentences)} \n "
         return context
+
+    def avg_resources(self, resources_dict):
+        for key, value in resources_dict.items():
+            value_mean = sum(value) / len(value)
+            value_coefficient = value_mean - len(value) * 0.0025
+            resources_dict[key] = value_coefficient
+        return resources_dict
 
     def widen_sentences(self, window_size: int, convergence_vector: np.ndarray):  
         widen_sentences = []
         for index in convergence_vector:
+            text = ""
             start = max(0, index - window_size)
             end = min(len(globals.sentences) - 1, index + window_size)
-            widen_sentences.append(f"{globals.sentences[start]} {globals.sentences[index]} {globals.sentences[end]}")
+            for i in range(start, end+1):
+                text += globals.sentences[i]
+            widen_sentences.append(text)
         return widen_sentences
 
     def extract_resources(self, convergence_vector: np.ndarray):
@@ -355,4 +426,4 @@ class FileProcessor:
 
     def clean_processor(self):
         self.change_dict = {}
-    
+
