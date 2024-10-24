@@ -408,8 +408,8 @@ class FileProcessor:
     def search_index_table(self, query):
         original_query = query.split('\n')[0]
 
-        D,I = globals.table_index.search(self.ef.create_vector_embedding_from_query(original_query),10)
-        filtered_table_indexes = [table_index for index, table_index in enumerate(I[0]) if D[0][index] < 0.35]
+        D,I = globals.table_index.search(self.ef.create_vector_embedding_from_query(original_query),5)
+        filtered_table_indexes = [table_index for index, table_index in enumerate(I[0]) if D[0][index] < 0.30]
         table_list = [globals.tables[index] for index in filtered_table_indexes]
 
         table_contexes = self.create_dynamic_context(table_list)

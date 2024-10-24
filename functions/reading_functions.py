@@ -130,7 +130,8 @@ class ReadingFunctions:
                 reconsracted_table = ""
                 table_extract = table.extract()
                 for sublist in table_extract:
-                    filtered = [str(item).replace('\n', '').strip() for item in sublist if item is not None]
+                    filtered = [str(item).replace('\n', ' ').strip() for item in sublist if item is not None]
+                    filtered = [re.sub(r'(?<!\w)([A-Za-z])\s+(\d+)(?!\w)', r'\1\2', item) for item in filtered]
                     combined_string = ' '.join(filtered) + '\n'
                     reconsracted_table += combined_string
                 table_list.append(reconsracted_table)
