@@ -2,6 +2,8 @@ from typing import Dict, List
 from pathlib import Path
 from datetime import datetime
 import numpy as np
+import pandas as pd
+from io import StringIO
 
 import faiss
 import json
@@ -334,8 +336,9 @@ class FileProcessor:
 
         widen_sentences = self.widen_sentences(window_size=1, convergence_vector=sorted_sentences)
         context = self.create_dynamic_context(sentences=widen_sentences)
-        table_context = self.search_index_table(query=original_query)
+        table_context,resources_table = self.search_index_table(query=original_query)
         resources = self.extract_resources(convergence_vector=sorted_sentences)
+        resources.extend(resources_table)
         resources_text = "- References in " + globals.selected_domain + ":"
         for i, resource in enumerate(resources):
             resources_text += textwrap.dedent(f"""
@@ -413,7 +416,8 @@ class FileProcessor:
         table_list = [globals.tables[index] for index in filtered_table_indexes]
 
         table_contexes = self.create_dynamic_context(table_list)
-        return table_contexes
+        resources_table = self.extract_table_resources(convergence_vector=filtered_table_indexes)
+        return table_contexes, resources_table 
 
     def create_dynamic_context(self, sentences):
         context = ""
@@ -454,6 +458,21 @@ class FileProcessor:
                             break
                     break            
         return resources
+    
+    def extract_table_resources(self, convergence_vector: np.ndarray):
+        table_resources = []
+        for index in convergence_vector:
+            cumulative_file_table_sum = 0
+            for i, table_amount in enumerate(globals.file_table_amount):
+                cumulative_file_table_sum += sum(table_amount)
+                if cumulative_file_table_sum > index:
+                    indices = [i for i, val in enumerate(table_amount) if val > 0 for _ in range(val)]
+                    page = indices[index]
+                    resource = {"file_name": globals.files[i], "page": page + 1}
+                    if resource not in table_resources:
+                        table_resources.append(resource)
+                    break
+        return table_resources
 
     def clean_processor(self):
         self.change_dict = {}

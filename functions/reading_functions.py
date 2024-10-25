@@ -25,7 +25,6 @@ class ReadingFunctions:
             "file_tables": [],
             "file_table_amount": [],
         }
-        file_tables = []
         # Open file
         path = Path(file_path)
         file_extension = path.suffix.lower()
@@ -36,10 +35,12 @@ class ReadingFunctions:
                         pdf_date = f"{file.metadata["creationDate"][4:6]}-{file.metadata["creationDate"][6:8]}-{file.metadata["creationDate"][9:11]}"
                         file_data["date"].append(pdf_date)
                         previous_sentence_count = 0
+                        previous_table_count = 0
                     except TypeError as e:
                         raise TypeError(f"PDF creation date could not extracted!: {e}")
                     try: 
                         for page_num in range(len(file)):
+                            file_tables = []
                             page = file.load_page(page_num)
                             page_tables = self._extract_pdf_tables(page)
                             if page_tables is not None: file_tables.extend(page_tables)
@@ -74,9 +75,11 @@ class ReadingFunctions:
                             sentences_in_this_page = current_sentence_count - previous_sentence_count
                             file_data["page_sentence_amount"].append(sentences_in_this_page)
                             previous_sentence_count = current_sentence_count
-                        file_data["file_tables"].extend(file_tables)
-                        table_amount = len(file_data["file_tables"])
-                        file_data["file_table_amount"].append(table_amount)
+                            file_data["file_tables"].extend(file_tables)
+                            current_table_count = len(file_data["file_tables"])
+                            tables_in_this_page = current_table_count - previous_table_count
+                            file_data["file_table_amount"].append(tables_in_this_page)
+                            previous_table_count = current_table_count
                     except TypeError as e:
                         raise TypeError(f"PDF text could not extracted!: {e}")
             elif file_extension == '.docx':
