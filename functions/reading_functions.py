@@ -23,6 +23,8 @@ class ReadingFunctions:
             "page_num": [],
             "block_num": [],
             "file_header" : [],
+            "file_tables": [],
+            "file_table_amount": [],
         }
         # Open file
         path = Path(file_path)
@@ -31,14 +33,18 @@ class ReadingFunctions:
             if file_extension == '.pdf':
                 with fitz.open(path) as file:
                     try:
-                        previous_sentence_count = 0
                         pdf_date = f"{file.metadata["creationDate"][4:6]}-{file.metadata["creationDate"][6:8]}-{file.metadata["creationDate"][9:11]}"
                         file_data["date"].append(pdf_date)
+                        previous_sentence_count = 0
+                        previous_table_count = 0
                     except TypeError as e:
                         raise TypeError(f"PDF creation date could not extracted!: {e}")
                     try: 
                         for page_num in range(len(file)):
+                            file_tables = []
                             page = file.load_page(page_num)
+                            page_tables = self._extract_pdf_tables(page)
+                            if page_tables is not None: file_tables.extend(page_tables)
                             block_text = page.get_text("blocks")
                             blocks = page.get_text("dict")["blocks"]
                             text_blocks = [block for block in blocks if block["type"] == 0]
@@ -70,6 +76,11 @@ class ReadingFunctions:
                             sentences_in_this_page = current_sentence_count - previous_sentence_count
                             file_data["page_sentence_amount"].append(sentences_in_this_page)
                             previous_sentence_count = current_sentence_count
+                            file_data["file_tables"].extend(file_tables)
+                            current_table_count = len(file_data["file_tables"])
+                            tables_in_this_page = current_table_count - previous_table_count
+                            file_data["file_table_amount"].append(tables_in_this_page)
+                            previous_table_count = current_table_count
                     except TypeError as e:
                         raise TypeError(f"PDF text could not extracted!: {e}")
             elif file_extension == '.docx':
@@ -161,3 +172,20 @@ class ReadingFunctions:
                 file_data["file_header"].append(full_text)
         except Exception as e:
             print(f"Error reading file: {path}. Error: {str(e)}")
+    #Table extraction from pdfs
+    def _extract_pdf_tables(self,page):
+        tabs = page.find_tables()
+        if not tabs.tables:
+            return
+        else:
+            table_list =  []
+            for table in tabs.tables:
+                reconsracted_table = ""
+                table_extract = table.extract()
+                for sublist in table_extract:
+                    filtered = [str(item).replace('\n', ' ').strip() for item in sublist if item is not None]
+                    filtered = [re.sub(r'(?<!\w)([A-Za-z])\s+(\d+)(?!\w)', r'\1\2', item) for item in filtered]
+                    combined_string = ' '.join(filtered) + '\n'
+                    reconsracted_table += combined_string
+                table_list.append(reconsracted_table)
+            return table_list
