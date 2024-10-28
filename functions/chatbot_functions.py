@@ -33,7 +33,7 @@ class ChatbotFunctions:
             User query: {query}
             """)
 
-    def _prompt_with_context_builder(self, query, context, table_context, lang):
+    def _prompt_with_context_builder(self, query, context, lang):
         if lang == "tr":
             return textwrap.dedent(f"""
             Siz, verilen metinden belirli bilgileri çıkarmada uzmanlaşmış bir yapay zeka asistanısınız.
@@ -58,8 +58,6 @@ class ChatbotFunctions:
 
             Bağlam Pencereleri:
             {context}
-            Tablo bağlam Penceleri:
-            {table_context}
 
             Kullanıcı Sorgusu: {query}
             """)
@@ -87,17 +85,15 @@ class ChatbotFunctions:
 
             Context Windows:
             {context}
-            Table Context Windows:
-            {table_context}
 
             User Query: {query}
             """)
         return prompt
 
-    def response_generation(self, query, context, table_context):
+    def response_generation(self, query, context):
         # Load chat model
         lang = self.detect_language(query=query)
-        prompt = self._prompt_with_context_builder(query=query, context=context, table_context=table_context, lang=lang)
+        prompt = self._prompt_with_context_builder(query=query, context=context, lang=lang)
         
         # Generate response
         response = self.client.chat.completions.create(
