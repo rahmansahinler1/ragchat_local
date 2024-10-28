@@ -346,11 +346,12 @@ class FileProcessor:
                 widen_sentences = self.widen_sentences(window_size=1, convergence_vector=sorted_sentences[i:i+1])
             all_widen_sentences.extend(widen_sentences)
 
-        context = self.create_dynamic_context(sentences=all_widen_sentences, type='sentence')
-        table_context,resources_table = self.search_index_table(query=original_query)
+        table_list,resources_table = self.search_index_table(query=original_query)
+        all_widen_sentences.extend(table_list)
+        
+        context = self.create_dynamic_context(sentences=all_widen_sentences)
         resources = self.extract_resources(convergence_vector=sorted_sentences)
         resources.extend(resources_table)
-        context += table_context
         resources_text = "- References in " + globals.selected_domain + ":"
         for i, resource in enumerate(resources):
             resources_text += textwrap.dedent(f"""
@@ -460,9 +461,8 @@ class FileProcessor:
         filtered_table_indexes = [table_index for index, table_index in enumerate(I[0]) if D[0][index] < 0.33]
         table_list = [globals.tables[index] for index in filtered_table_indexes]
 
-        table_contexes = self.create_dynamic_context(table_list, type='table')
         resources_table = self.extract_table_resources(convergence_vector=filtered_table_indexes)
-        return table_contexes, resources_table 
+        return table_list, resources_table 
     
     def query_preprocessing(self, user_query):
         clean_query_list = []
@@ -476,14 +476,10 @@ class FileProcessor:
                 clean_query_list.append(clean_query)
         return clean_query_list
 
-    def create_dynamic_context(self, sentences, type):
+    def create_dynamic_context(self, sentences):
         context = ""
-        if type == 'sentence':
-            for i, sentence in enumerate(sentences, 1):
-                context += f"Context{i}: {sentence} Confidence: {(len(sentences)-i+1)/len(sentences)} \n"
-        elif type == 'table':
-            for i, sentence in enumerate(sentences, 1):
-                context += f"Table Context{i}: {sentence} Confidence: {(len(sentences)-i+1)/len(sentences)} \n"
+        for i, sentence in enumerate(sentences, 1):
+            context += f"Context{i}: {sentence} Confidence: {(len(sentences)-i+1)/len(sentences)} \n"
         return context
 
     def avg_resources(self, resources_dict):
