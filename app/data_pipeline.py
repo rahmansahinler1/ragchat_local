@@ -332,7 +332,9 @@ class FileProcessor:
                 avg_index_list[key] *= boost_combined[key]
             sorted_dict = dict(sorted(avg_index_list.items(), key=lambda item: item[1]))
             indexes = np.array(list(sorted_dict.keys()))
+            distances = np.array(list(sorted_dict.values()))
             sorted_sentences = indexes[:10]
+            sentence_distances = list(distances[:10])
         except ValueError as e:
             original_query = "Please provide meaningful query:"
             print(f"{original_query, {e}}")
@@ -346,10 +348,19 @@ class FileProcessor:
                 widen_sentences = self.widen_sentences(window_size=1, convergence_vector=sorted_sentences[i:i+1])
             all_widen_sentences.extend(widen_sentences)
 
-        table_list,resources_table = self.search_index_table(query=original_query)
-        all_widen_sentences.extend(table_list)
-        
-        context = self.create_dynamic_context(sentences=all_widen_sentences)
+        table_list,resources_table,table_distances = self.search_index_table(query=original_query)
+        if table_list:
+            all_widen_sentences.extend(table_list)
+            sentence_distances.extend(table_distances)
+
+            pairs = list(zip(sentence_distances, all_widen_sentences))
+            sorted_pairs = sorted(pairs, reverse=False)
+            sorted_widened_sentences = [pair[1] for pair in sorted_pairs]
+
+            context = self.create_dynamic_context(sentences=sorted_widened_sentences)
+        else:
+            context = self.create_dynamic_context(sentences=all_widen_sentences)
+
         resources = self.extract_resources(convergence_vector=sorted_sentences)
         resources.extend(resources_table)
         resources_text = "- References in " + globals.selected_domain + ":"
@@ -460,9 +471,10 @@ class FileProcessor:
         D,I = globals.table_index.search(self.ef.create_vector_embedding_from_query(original_query),len(globals.tables))
         filtered_table_indexes = [table_index for index, table_index in enumerate(I[0]) if D[0][index] < 0.33]
         table_list = [globals.tables[index] for index in filtered_table_indexes]
+        table_distances = D[0][:len(filtered_table_indexes)]
 
         resources_table = self.extract_table_resources(convergence_vector=filtered_table_indexes)
-        return table_list, resources_table 
+        return table_list, resources_table,table_distances
     
     def query_preprocessing(self, user_query):
         clean_query_list = []
