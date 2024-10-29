@@ -319,19 +319,22 @@ class FileProcessor:
                 avg_index_list[key] *= boost_combined[key]
             sorted_dict = dict(sorted(avg_index_list.items(), key=lambda item: item[1]))
             indexes = np.array(list(sorted_dict.keys()))
-            sorted_sentences = indexes[:10]
+            sorted_sentences = indexes[:5]
+            table_indexes =  [(order, int(index)) for order, index in enumerate(sorted_sentences) if globals.is_table[int(index)] == 1]
+            sentence_indexes =  [(order, int(index)) for order, index in enumerate(sorted_sentences) if globals.is_table[int(index)] == 0]
+            all_table_indexes = [i for i,index in enumerate(globals.is_table) if index == 1]
         except ValueError as e:
             original_query = "Please provide meaningful query:"
             print(f"{original_query, {e}}")
 
-        for i in range(len(sorted_sentences)):
-            if i == 0:
-                widen_sentences = self.widen_sentences(window_size=3, convergence_vector=sorted_sentences[i:i+1])
-            elif i in range(1,4):
-                widen_sentences = self.widen_sentences(window_size=2, convergence_vector=sorted_sentences[i:i+1])
+        for order,index in sentence_indexes:
+            if order == 0:
+                widen_sentences = self.widen_sentences(window_size=3, index=index)
+            elif order in range(1,4):
+                widen_sentences = self.widen_sentences(window_size=2, index=index)
             else:
-                widen_sentences = self.widen_sentences(window_size=1, convergence_vector=sorted_sentences[i:i+1])
-            all_widen_sentences.extend(widen_sentences)
+                widen_sentences = self.widen_sentences(window_size=1, index=index)
+            all_widen_sentences.append(widen_sentences)
 
         context = self.create_dynamic_context(sentences=all_widen_sentences)
         resources = self.extract_resources(convergence_vector=sorted_sentences)
@@ -456,16 +459,13 @@ class FileProcessor:
             resources_dict[key] = value_coefficient
         return resources_dict
 
-    def widen_sentences(self, window_size: int, convergence_vector: np.ndarray):  
-        widen_sentences = []
-        for index in convergence_vector:
-            text = ""
-            start = max(0, index - window_size)
-            end = min(len(globals.sentences) - 1, index + window_size)
-            for i in range(start, end+1):
-                text += globals.sentences[i]
-            widen_sentences.append(text)
-        return widen_sentences
+    def widen_sentences(self, window_size: int, index: int):  
+        text = ""
+        start = max(0, index - window_size)
+        end = min(len(globals.sentences) - 1, index + window_size)
+        for i in range(start, end+1):
+            text += globals.sentences[i]
+        return text
 
     def extract_resources(self, convergence_vector: np.ndarray):
         resources = []
