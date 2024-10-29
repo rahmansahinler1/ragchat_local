@@ -117,16 +117,14 @@ class FileProcessor:
                 index_object = self.indf.load_index(index_path)
                 index_object["file_path"].extend(path for path in value["file_path"])
                 index_object["file_sentence_amount"].extend(sentence_amount for sentence_amount in value["file_sentence_amount"])
-                index_object["file_table_amount"].extend(table_amount for table_amount in value["file_table_amount"])
                 index_object["sentences"].extend(sentence for sentence in value["sentences"])
                 index_object["date"].extend(date for date in value["date"])
-                index_object["file_tables"].extend(table for table in value["file_tables"])
                 index_object["file_header"].extend(date for date in value["file_header"])
                 index_object["page_num"].extend(page for page in value["page_num"])
                 index_object["block_num"].extend(block for block in value["block_num"])
                 index_object["is_header"].extend(header for header in value["is_header"])
+                index_object["is_table"].extend(header for header in value["is_table"])
                 index_object["embeddings"] = np.vstack((index_object["embeddings"], value["embeddings"]))
-                index_object["table_embeddings"] = np.vstack((index_object["table_embeddings"], value["table_embeddings"]))
                 
                 self.indf.save_index(
                     index_object=index_object,
@@ -158,24 +156,19 @@ class FileProcessor:
                 # Update corresponding index and sentences with matching change and index object according to sentence amounts
                 cumulative_index = 0
                 diff = 0
-                table_cumulative_index = 0
-                table_diff = 0
                 for i, file_index in enumerate(file_path_indexes):
                     # Data assignments
                     change_index_start = sum(sum(page_sentence_amount) for page_sentence_amount in index_object["file_sentence_amount"][:file_index]) + diff
                     change_index_finish = change_index_start + sum(index_object["file_sentence_amount"][file_index]) + diff
-                    tables_change_index_start = sum(sum(file_table_amount) for file_table_amount in index_object["file_table_amount"][:file_index]) + table_diff
-                    tables_change_index_finish = tables_change_index_start + sum(index_object["file_table_amount"][file_index]) + table_diff
                     index_object["sentences"][change_index_start:change_index_finish] = value["sentences"][cumulative_index: sum(value["file_sentence_amount"][i])]
                     index_object["is_header"][change_index_start:change_index_finish] = value["is_header"][cumulative_index: sum(value["file_sentence_amount"][i])]
+                    index_object["is_table"][change_index_start:change_index_finish] = value["is_table"][cumulative_index: sum(value["file_sentence_amount"][i])]
                     index_object["page_num"][change_index_start:change_index_finish] = value["page_num"][cumulative_index: sum(value["file_sentence_amount"][i])]
                     index_object["block_num"][change_index_start:change_index_finish] = value["block_num"][cumulative_index: sum(value["file_sentence_amount"][i])]
                     index_object["embeddings"][change_index_start:change_index_finish] = value["embeddings"][cumulative_index: sum(value["file_sentence_amount"][i])]
                     # Index differences for next iteration
                     diff = len(value["sentences"][cumulative_index: sum(value["file_sentence_amount"][i])]) - len(index_object["sentences"][change_index_start:change_index_finish])
                     cumulative_index = sum(value["file_sentence_amount"][i])
-                    table_diff = len(value["file_tables"][cumulative_index: sum(value["file_table_amount"][i])]) - len(index_object["file_tables"][change_index_start:change_index_finish])
-                    table_cumulative_index = sum(value["file_table_amount"][i])
                 # Update sentence amounts list
                 for i, file_index in enumerate(file_path_indexes):
                     index_object["file_sentence_amount"][file_index] = value["file_sentence_amount"][i]
@@ -208,19 +201,16 @@ class FileProcessor:
                     # Delete corresponding parts from the index object
                     change_index_start = sum(sum(page_sentence_amount) for page_sentence_amount in index_object["file_sentence_amount"][:file_path_index])
                     change_index_finish = change_index_start + sum(index_object["file_sentence_amount"][file_path_index])
-                    tables_change_index_start = sum(sum(file_table_amount) for file_table_amount in index_object["file_table_amount"][:file_path_index])
-                    tables_change_index_finish = tables_change_index_start + sum(index_object["file_table_amount"][file_path_index])
                     del index_object["sentences"][change_index_start:change_index_finish]
                     del index_object["is_header"][change_index_start:change_index_finish]
+                    del index_object["is_table"][change_index_start:change_index_finish]
                     del index_object["page_num"][change_index_start:change_index_finish]
                     del index_object["block_num"][change_index_start:change_index_finish]
-                    del index_object["file_tables"][tables_change_index_start:tables_change_index_finish]
                     index_object["embeddings"] = np.delete(index_object["embeddings"], np.arange(change_index_start, change_index_finish), axis=0)
                     index_object["file_path"].pop(file_path_index)
                     index_object["date"].pop(file_path_index)
                     index_object["file_header"].pop(file_path_index)
                     index_object["file_sentence_amount"].pop(file_path_index)
-                    index_object["file_table_amount"].pop(file_path_index)
 
                    #Removing pickle if file is empty
                     if len(index_object["file_path"]) == 0:
@@ -247,13 +237,12 @@ class FileProcessor:
                 "file_sentence_amount": [],
                 "sentences" : [],
                 "date" : [],
-                "file_tables": [],
                 "file_header" : [],
                 "is_header": [],
+                "is_table": [],
                 "page_num": [],
                 "block_num": [],
                 "embeddings": np.empty(shape=shape),
-                "table_embeddings": np.empty(shape=table_shape)
         }
         file_path_indexes = []
         if date:
@@ -268,7 +257,6 @@ class FileProcessor:
                             filtered_index["file_sentence_amount"].append(index_object["file_sentence_amount"][i])
                             filtered_index["date"].append(index_object["date"][i])
                             filtered_index["file_header"].append(index_object["file_header"][i])
-                            filtered_index["file_table_amount"].append(index_object["file_table_amount"][i])
                         except FileNotFoundError as e:
                             raise FileExistsError(f"Index file could not be found for filtering!: {e}")
                         
@@ -280,13 +268,12 @@ class FileProcessor:
                     table_end =  table_start + sum(index_object["file_table_amount"][index])
 
                     filtered_index["sentences"].extend(index_object["sentences"][sentence_start:sentence_end])
-                    filtered_index["file_tables"].extend(index_object["file_tables"][table_start:table_end])
                     filtered_index["is_header"].extend(index_object["is_header"][sentence_start:sentence_end])
+                    filtered_index["is_table"].extend(index_object["is_table"][sentence_start:sentence_end])
                     filtered_index["page_num"].extend(index_object["page_num"][sentence_start:sentence_end])
                     filtered_index["block_num"].extend(index_object["block_num"][sentence_start:sentence_end])
                     filtered_index["boost"].extend(index_object["boost"][sentence_start:sentence_end])
                     filtered_index["embeddings"] = np.vstack((index_object["embeddings"][sentence_start:sentence_end],filtered_index["embeddings"]))
-                    filtered_index["table_embeddings"] = np.vstack((index_object["table_embeddings"][table_start:table_end],filtered_index["table_embeddings"]))
 
                 except FileNotFoundError as e:
                     raise FileExistsError(f"Index file could not be found for filtering!: {e}")
@@ -377,7 +364,6 @@ class FileProcessor:
         file_data = self.rf.read_file(file_path=change["file_path"])
         self.rf._extract_file_header(file_path=change["file_path"],file_data=file_data)
         file_embeddings = self.ef.create_vector_embeddings_from_sentences(sentences=file_data["sentences"])
-        file_tables_embeddings = self.ef.create_vector_embeddings_from_sentences(sentences=file_data["file_tables"])
 
         # Detect changed domain
         pattern = r'domain\d+'
@@ -387,30 +373,26 @@ class FileProcessor:
             if domain in self.change_dict.keys():
                 self.change_dict[domain]["file_path"].append(change["file_path"])
                 self.change_dict[domain]["file_sentence_amount"].append(file_data["page_sentence_amount"])
-                self.change_dict[domain]["file_table_amount"].append(file_data["file_table_amount"])
                 self.change_dict[domain]["sentences"].extend(file_data["sentences"])
                 self.change_dict[domain]["date"].extend(file_data["date"])
-                self.change_dict[domain]["file_tables"].extend(file_data["file_tables"])
                 self.change_dict[domain]["file_header"].extend(file_data["file_header"])
                 self.change_dict[domain]["page_num"].extend(file_data["page_num"])
                 self.change_dict[domain]["block_num"].extend(file_data["block_num"])
                 self.change_dict[domain]["is_header"].extend(file_data["is_header"])
+                self.change_dict[domain]["is_table"].extend(file_data["is_table"])
                 self.change_dict[domain]["embeddings"] = np.vstack((self.change_dict[domain]["embeddings"], file_embeddings))
-                self.change_dict[domain]["table_embeddings"] = np.vstack((self.change_dict[domain]["table_embeddings"], file_tables_embeddings))
             else:
                 self.change_dict[domain] = {
                     "file_path": [change["file_path"]],
                     "file_sentence_amount": [file_data["page_sentence_amount"]],
-                    "file_table_amount": [file_data["file_table_amount"]],
                     "sentences": file_data["sentences"],
                     "date" : file_data["date"],
                     "file_header" : file_data["file_header"],
-                    "file_tables" : file_data["file_tables"],
                     "embeddings": file_embeddings,
-                    "table_embeddings": file_tables_embeddings,
                     "page_num" : file_data["page_num"],
                     "block_num" : file_data["block_num"],
                     "is_header" : file_data["is_header"],
+                    "is_table" : file_data["is_table"],
                 }
 
     # Boost most semanticaly similar headers sentences
@@ -463,18 +445,6 @@ class FileProcessor:
                 except IndexError as e:
                     print(f"List is out of range {e}")
         return boost
-    
-    # Search on extracted table embeddings
-    def search_index_table(self, query):
-        original_query = query.split('\n')[0]
-
-        D,I = globals.table_index.search(self.ef.create_vector_embedding_from_query(original_query),len(globals.tables))
-        filtered_table_indexes = [table_index for index, table_index in enumerate(I[0]) if D[0][index] < 0.33]
-        table_list = [globals.tables[index] for index in filtered_table_indexes]
-        table_distances = D[0][:len(filtered_table_indexes)]
-
-        resources_table = self.extract_table_resources(convergence_vector=filtered_table_indexes)
-        return table_list, resources_table,table_distances
     
     def query_preprocessing(self, user_query):
         clean_query_list = []
@@ -529,23 +499,6 @@ class FileProcessor:
                             break
                     break            
         return resources
-    
-    # Table resource function
-    def extract_table_resources(self, convergence_vector: np.ndarray):
-        table_resources = []
-        for index in convergence_vector:
-            cumulative_file_table_sum = 0
-            for i, table_amount in enumerate(globals.file_table_amount):
-                cumulative_file_table_sum += sum(table_amount)
-                if cumulative_file_table_sum > index:
-                    indices = [i for i, val in enumerate(table_amount) if val > 0 for _ in range(val)]
-                    position = index-(cumulative_file_table_sum-sum(table_amount))
-                    page = indices[position]
-                    resource = {"file_name": globals.files[i], "page": page + 1}
-                    if resource not in table_resources:
-                        table_resources.append(resource)
-                    break
-        return table_resources
 
     def clean_processor(self):
         self.change_dict = {}

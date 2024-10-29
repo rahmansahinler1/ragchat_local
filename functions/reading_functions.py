@@ -23,8 +23,7 @@ class ReadingFunctions:
             "page_num": [],
             "block_num": [],
             "file_header" : [],
-            "file_tables": [],
-            "file_table_amount": [],
+            "is_table" : [],
         }
         # Open file
         path = Path(file_path)
@@ -36,51 +35,49 @@ class ReadingFunctions:
                         pdf_date = f"{file.metadata["creationDate"][4:6]}-{file.metadata["creationDate"][6:8]}-{file.metadata["creationDate"][9:11]}"
                         file_data["date"].append(pdf_date)
                         previous_sentence_count = 0
-                        previous_table_count = 0
                     except TypeError as e:
                         raise TypeError(f"PDF creation date could not extracted!: {e}")
                     try: 
                         for page_num in range(len(file)):
-                            file_tables = []
                             page = file.load_page(page_num)
-                            page_tables = self._extract_pdf_tables(page)
-                            if page_tables is not None: file_tables.extend(page_tables)
-                            block_text = page.get_text("blocks")
-                            blocks = page.get_text("dict")["blocks"]
-                            text_blocks = [block for block in blocks if block["type"] == 0]
-                            for i,block in enumerate(text_blocks):
-                                if "lines" in block and len(block["lines"]) >= 1 and len(block["lines"]) < 5: 
-                                    for line in block["lines"]:
-                                        for span in line["spans"]:
-                                            text = span["text"]
-                                            if span["size"] > 3 and (span["font"].find("Medi") >0 or span["font"].find("Bold") >0 or span["font"].find("B") >0) and len(text) > 3 and text[0].isalpha() and self._header_regex_check(text) == None:
-                                                file_data["sentences"].append(text)
-                                                file_data["is_header"].append(1)
-                                                file_data["page_num"].append(page_num+1)
-                                                file_data["block_num"].append(i)
-                                            elif len(text) > 15 and re.search(r'^[^\w\s]+$|^[_]+$',text) == None:
-                                                file_data["sentences"].append(text)
-                                                file_data["is_header"].append(0)
-                                                file_data["page_num"].append(page_num+1)
-                                                file_data["block_num"].append(i)
-                                elif "lines" in block:
-                                    for sent_num in range(len(block_text[i][4].split('. '))):
-                                            sentence = re.split(r'(?<=[.!?])\s+', block_text[i][4])[sent_num].strip()
-                                            clean_sentence = self._process_regex(sentence)
-                                            if len(clean_sentence) > 15:
-                                                file_data["sentences"].append(clean_sentence)
-                                                file_data["is_header"].append(0)
-                                                file_data["page_num"].append(page_num + 1)
-                                                file_data["block_num"].append(i)
+                            tables = page.find_tables()
+                            if tables.tables:
+                                self._extract_pdf_tables(page,file_data,tables)
+                            else:
+                                block_text = page.get_text("blocks")
+                                blocks = page.get_text("dict")["blocks"]
+                                text_blocks = [block for block in blocks if block["type"] == 0]
+                                for i,block in enumerate(text_blocks):
+                                    if "lines" in block and len(block["lines"]) >= 1 and len(block["lines"]) < 5: 
+                                        for line in block["lines"]:
+                                            for span in line["spans"]:
+                                                text = span["text"]
+                                                if span["size"] > 3 and (span["font"].find("Medi") >0 or span["font"].find("Bold") >0 or span["font"].find("B") >0) and len(text) > 3 and text[0].isalpha() and self._header_regex_check(text) == None:
+                                                    file_data["sentences"].append(text)
+                                                    file_data["is_header"].append(1)
+                                                    file_data["page_num"].append(page_num+1)
+                                                    file_data["block_num"].append(i)
+                                                    file_data["is_table"].append(0)
+                                                elif len(text) > 15 and re.search(r'^[^\w\s]+$|^[_]+$',text) == None:
+                                                    file_data["sentences"].append(text)
+                                                    file_data["is_header"].append(0)
+                                                    file_data["page_num"].append(page_num+1)
+                                                    file_data["block_num"].append(i)
+                                                    file_data["is_table"].append(0)
+                                    elif "lines" in block:
+                                        for sent_num in range(len(block_text[i][4].split('. '))):
+                                                sentence = re.split(r'(?<=[.!?])\s+', block_text[i][4])[sent_num].strip()
+                                                clean_sentence = self._process_regex(sentence)
+                                                if len(clean_sentence) > 15:
+                                                    file_data["sentences"].append(clean_sentence)
+                                                    file_data["is_header"].append(0)
+                                                    file_data["page_num"].append(page_num + 1)
+                                                    file_data["block_num"].append(i)
+                                                    file_data["is_table"].append(0)
                             current_sentence_count = len(file_data["sentences"])
                             sentences_in_this_page = current_sentence_count - previous_sentence_count
                             file_data["page_sentence_amount"].append(sentences_in_this_page)
                             previous_sentence_count = current_sentence_count
-                            file_data["file_tables"].extend(file_tables)
-                            current_table_count = len(file_data["file_tables"])
-                            tables_in_this_page = current_table_count - previous_table_count
-                            file_data["file_table_amount"].append(tables_in_this_page)
-                            previous_table_count = current_table_count
                     except TypeError as e:
                         raise TypeError(f"PDF text could not extracted!: {e}")
             elif file_extension == '.docx':
@@ -98,9 +95,11 @@ class ReadingFunctions:
                             if para.style.name.startswith('Heading') or para.style.name.startswith('Title'):
                                 file_data["sentences"].append(para.text)
                                 file_data["is_header"].append(1)
+                                file_data["is_table"].append(0)
                             elif len(para.text) > 15:
                                 file_data["sentences"].append(para.text)
                                 file_data["is_header"].append(0)
+                                file_data["is_table"].append(0)
                         current_sentence_count = len(file_data["sentences"])
                         sentences_in_this_page = current_sentence_count - previous_sentence_count
                         file_data["page_sentence_amount"].append(sentences_in_this_page)
@@ -172,20 +171,46 @@ class ReadingFunctions:
                 file_data["file_header"].append(full_text)
         except Exception as e:
             print(f"Error reading file: {path}. Error: {str(e)}")
-    #Table extraction from pdfs
-    def _extract_pdf_tables(self,page):
-        tabs = page.find_tables()
-        if not tabs.tables:
-            return
-        else:
-            table_list =  []
-            for table in tabs.tables:
-                reconsracted_table = ""
-                table_extract = table.extract()
-                for sublist in table_extract:
-                    filtered = [str(item).replace('\n', ' ').strip() for item in sublist if item is not None]
-                    filtered = [re.sub(r'(?<!\w)([A-Za-z])\s+(\d+)(?!\w)', r'\1\2', item) for item in filtered]
-                    combined_string = ' '.join(filtered) + '\n'
-                    reconsracted_table += combined_string
-                table_list.append(reconsracted_table)
-            return table_list
+    
+    # Table extraction from pdfs
+    def _extract_pdf_tables(self,page,file_data,tables):
+        blocks = page.get_text("blocks")
+        table_bboxes = [(tab.bbox[0]-1, tab.bbox[1]-31, tab.bbox[2], tab.bbox[3]) for tab in tables.tables]
+        blocks_dict = page.get_text("dict")["blocks"]
+        text_blocks = [block for block in blocks_dict if block["type"] == 0]
+        for i,block in enumerate(blocks):
+            if any(table_bbox[1] <= block[1] <= table_bbox[3] and table_bbox[0] <= block[0] <= table_bbox[2] for table_bbox  in table_bboxes):
+                table_sentence = block[4].replace('\n', ' ').strip()
+                if len(table_sentence)>0:
+                    file_data["sentences"].append(table_sentence)
+                    file_data["is_header"].append(0)
+                    file_data["page_num"].append(int(page.number)+1)
+                    file_data["block_num"].append(i)
+                    file_data["is_table"].append(1)
+            else:
+                if "lines" in text_blocks[i] and len(text_blocks[i]["lines"]) >= 1 and len(text_blocks[i]["lines"]) < 4:
+                    for line in text_blocks[i]["lines"]:
+                        for span in line["spans"]:
+                            text = span["text"]
+                            if span["size"] > 3 and (span["font"].find("Medi") >0 or span["font"].find("Bold") >0 or span["font"].find("B") >0) and len(text) > 3 and text[0].isalpha() and self._header_regex_check(text) == None:
+                                file_data["sentences"].append(text)
+                                file_data["is_header"].append(1)
+                                file_data["page_num"].append(int(page.number)+1)
+                                file_data["block_num"].append(i)
+                                file_data["is_table"].append(0)
+                            elif len(text) > 15 and re.search(r'^[^\w\s]+$|^[_]+$',text) == None:
+                                file_data["sentences"].append(text)
+                                file_data["is_header"].append(0)
+                                file_data["page_num"].append(int(page.number)+1)
+                                file_data["block_num"].append(i)
+                                file_data["is_table"].append(0)
+                elif "lines" in text_blocks[i]:
+                    for sent_num in range(len(block[4].split('. '))):
+                        sentence = re.split(r'(?<=[.!?])\s+', block[4])[sent_num].strip()
+                        clean_sentence = self._process_regex(sentence)
+                        if len(clean_sentence) > 15:
+                            file_data["sentences"].append(clean_sentence)
+                            file_data["is_header"].append(0)
+                            file_data["page_num"].append(int(page.number)+1)
+                            file_data["block_num"].append(i)
+                            file_data["is_table"].append(0)
