@@ -319,9 +319,7 @@ class FileProcessor:
                 avg_index_list[key] *= boost_combined[key]
             sorted_dict = dict(sorted(avg_index_list.items(), key=lambda item: item[1]))
             indexes = np.array(list(sorted_dict.keys()))
-            distances = np.array(list(sorted_dict.values()))
             sorted_sentences = indexes[:10]
-            sentence_distances = list(distances[:10])
         except ValueError as e:
             original_query = "Please provide meaningful query:"
             print(f"{original_query, {e}}")
@@ -335,21 +333,8 @@ class FileProcessor:
                 widen_sentences = self.widen_sentences(window_size=1, convergence_vector=sorted_sentences[i:i+1])
             all_widen_sentences.extend(widen_sentences)
 
-        table_list,resources_table,table_distances = self.search_index_table(query=original_query)
-        if table_list:
-            all_widen_sentences.extend(table_list)
-            sentence_distances.extend(table_distances)
-
-            pairs = list(zip(sentence_distances, all_widen_sentences))
-            sorted_pairs = sorted(pairs, reverse=False)
-            sorted_widened_sentences = [pair[1] for pair in sorted_pairs]
-
-            context = self.create_dynamic_context(sentences=sorted_widened_sentences)
-        else:
-            context = self.create_dynamic_context(sentences=all_widen_sentences)
-
+        context = self.create_dynamic_context(sentences=all_widen_sentences)
         resources = self.extract_resources(convergence_vector=sorted_sentences)
-        resources.extend(resources_table)
         resources_text = "- References in " + globals.selected_domain + ":"
         for i, resource in enumerate(resources):
             resources_text += textwrap.dedent(f"""

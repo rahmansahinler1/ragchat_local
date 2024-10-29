@@ -40,7 +40,7 @@ class ChatbotFunctions:
             Göreviniz, verilen bağlam pencerelerini analiz etmek ve kullanıcının sorgusu temelinde ilgili verileri çıkarmaktır.
 
             Talimatlar:
-            1. Size her biri birkaç cümle ve tablo içeren bağlam penceresi verilecektir.
+            1. Size her biri birkaç cümle içeren bağlam penceresi verilecektir.
             2. Her bağlam cümlesinin sonuna bir güven düzeyi sayısı eklenmiştir; daha yüksek güven sayısı, yanıt oluştururken daha yüksek öncelik anlamına gelir. Güven düzeyleri 0 ile 1 arasında olacaktır.
             3. Tüm bağlam pencerelerini dikkatle okuyun.
             4. Kullanıcının hangi özel bilgiyi aradığını anlamak için kullanıcının sorgusunu analiz edin.
@@ -67,12 +67,12 @@ class ChatbotFunctions:
             Your task is to analyze the given context windows and extract relevant data based on the user's query.
 
             Instructions:
-            1. You will be provided with context windows and table context windows, each containing several sentences and tables. 
+            1. You will be provided with context windows, each containing several sentences. 
             2. There are confidence level specified as numbers after each context sentence, higher confidence number means higher priority in creating answer. Create the answer according to confidence levels. Confidence levels are going to be between 0 and 1.
-            3. Carefully read all context and table windows.
+            3. Carefully read all context.
             4. Analyze the user's query to understand what specific information they are looking for.
-            5. Search for and extract the relevant information from the context and table windows according to the hierarchy and ensure your response reflects this priority.
-            6. If the requested information is not present in any of the context and table windows, state that clearly.
+            5. Search for and extract the relevant information from the context according to the hierarchy and ensure your response reflects this priority.
+            6. If the requested information is not present in any of the context, state that clearly.
             7. Present the extracted information in a clear and concise manner.
             8. If appropriate, provide brief context or explanation for the extracted data.
 
