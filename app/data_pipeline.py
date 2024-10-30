@@ -319,15 +319,15 @@ class FileProcessor:
                 avg_index_list[key] *= boost_combined[key]
             sorted_dict = dict(sorted(avg_index_list.items(), key=lambda item: item[1]))
             indexes = np.array(list(sorted_dict.keys()))
-            sorted_sentences = indexes[:5]
-            table_indexes =  [(order, int(index)) for order, index in enumerate(sorted_sentences) if globals.is_table[int(index)] == 1]
-            sentence_indexes =  [(order, int(index)) for order, index in enumerate(sorted_sentences) if globals.is_table[int(index)] == 0]
-            all_table_indexes = [i for i,index in enumerate(globals.is_table) if index == 1]
+            sorted_sentences = indexes[:10]
+            sorted_sentence_indexes =  [(order, int(index)) for order, index in enumerate(sorted_sentences) if globals.is_table[int(index)] == 0]
+            sorted_table_indexes =  [index for index in sorted_sentences if globals.is_table[int(index)] == 1]
+            matched_table_indexes = self.table_index_finder(index_list=sorted_table_indexes)
         except ValueError as e:
             original_query = "Please provide meaningful query:"
             print(f"{original_query, {e}}")
 
-        for order,index in sentence_indexes:
+        for order,index in sorted_sentence_indexes:
             if order == 0:
                 widen_sentences = self.widen_sentences(window_size=3, index=index)
             elif order in range(1,4):
@@ -433,6 +433,29 @@ class FileProcessor:
                 except IndexError as e:
                     print(f"List is out of range {e}")
         return boost
+    
+    def table_index_finder(self, index_list):
+        table_clusters = []
+        start = None
+        matched_clusters = []
+        
+        for i, value in enumerate(globals.is_table):
+            if value == 1 and start is None:
+                start = i
+            elif value == 0 and start is not None:
+                table_clusters.append((start, i-1))
+                start = None
+        
+        if start is not None:
+            table_clusters.append((start, len(globals.is_table)-1))
+        
+        for index in index_list:
+            for start, end in table_clusters:
+                if start <= index <= end:
+                    if (start, end) not in matched_clusters:
+                        matched_clusters.append((start, end))
+                        break
+        return matched_clusters
     
     def query_preprocessing(self, user_query):
         clean_query_list = []

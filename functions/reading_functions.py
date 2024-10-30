@@ -175,19 +175,26 @@ class ReadingFunctions:
     # Table extraction from pdfs
     def _extract_pdf_tables(self,page,file_data,tables):
         blocks = page.get_text("blocks")
-        table_bboxes = [(tab.bbox[0]-1, tab.bbox[1]-31, tab.bbox[2], tab.bbox[3]) for tab in tables.tables]
         blocks_dict = page.get_text("dict")["blocks"]
         text_blocks = [block for block in blocks_dict if block["type"] == 0]
+        table_texts = self._extract_table_text(tabs=tables)
+        table_bboxes = [(tab.bbox[0], tab.bbox[1], tab.bbox[2], tab.bbox[3]) for tab in tables.tables]
+        counter = 0
         for i,block in enumerate(blocks):
-            if any(table_bbox[1] <= block[1] <= table_bbox[3] and table_bbox[0] <= block[0] <= table_bbox[2] for table_bbox  in table_bboxes):
-                table_sentence = block[4].replace('\n', ' ').strip()
-                if len(table_sentence)>0:
-                    file_data["sentences"].append(table_sentence)
+            match_index,check = self._table_bbox_checker(block=block,bboxes=table_bboxes)
+            if check == 1:
+                if counter == 0:
+                    file_data["sentences"].append(table_texts[match_index])
                     file_data["is_header"].append(0)
                     file_data["page_num"].append(int(page.number)+1)
                     file_data["block_num"].append(i)
                     file_data["is_table"].append(1)
+                    counter += 1
+                else:
+                    counter += 1
             else:
+                if counter > 0:
+                    file_data["is_table"][(len(file_data["sentence"])-1)] == 1
                 if "lines" in text_blocks[i] and len(text_blocks[i]["lines"]) >= 1 and len(text_blocks[i]["lines"]) < 4:
                     for line in text_blocks[i]["lines"]:
                         for span in line["spans"]:
@@ -214,3 +221,22 @@ class ReadingFunctions:
                             file_data["page_num"].append(int(page.number)+1)
                             file_data["block_num"].append(i)
                             file_data["is_table"].append(0)
+
+    def _extract_table_text(self,tabs):
+        table_list =  []
+        for table in tabs.tables:
+            reconsracted_table = ""
+            table_extract = table.extract()
+            for sublist in table_extract:
+                filtered = [str(item).replace('\n', ' ').strip() for item in sublist if item is not None]
+                filtered = [re.sub(r'(?<!\w)([A-Za-z])\s+(\d+)(?!\w)', r'\1\2', item) for item in filtered]
+                combined_string = ' '.join(filtered) + '\n'
+                reconsracted_table += combined_string
+            table_list.append(reconsracted_table)
+        return table_list
+    
+    def _table_bbox_checker(self,block,bboxes):
+        for j, table_bbox in enumerate(bboxes):
+            if table_bbox[1] <= block[1] <= table_bbox[3] and table_bbox[0] <= block[0] <= table_bbox[2]:
+                return j, 1
+        return -1, 0
