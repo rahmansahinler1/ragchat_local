@@ -132,7 +132,7 @@ class ReadingFunctions:
         return clean_text
     
     def _header_regex_check(self,text):
-        punct_pattern = r"\b[A-Z0-9]+(?:\/[A-Z0-9]+)*(?:\.[A-Z0-9]+)?\b"
+        punct_pattern = r"\b[A-Z0-9]+(?:\/[A-Z0-9]+)+(?:\.[A-Z0-9]+)?\b"
         regex_pattern = re.compile(f"{punct_pattern}", re.VERBOSE)
         result = re.search(regex_pattern,text)
         return result
@@ -182,20 +182,22 @@ class ReadingFunctions:
         counter = 0
         for i,block in enumerate(blocks):
             match_index,check = self._table_bbox_checker(block=block,bboxes=table_bboxes)
-            if check == 1:
-                if counter == 0:
-                    file_data["sentences"].append(table_texts[match_index])
-                    file_data["is_header"].append(0)
-                    file_data["page_num"].append(int(page.number)+1)
-                    file_data["block_num"].append(i)
-                    file_data["is_table"].append(1)
-                    counter += 1
-                else:
-                    counter += 1
-            else:
-                if counter > 0:
-                    file_data["is_table"][(len(file_data["sentence"])-1)] == 1
-                if "lines" in text_blocks[i] and len(text_blocks[i]["lines"]) >= 1 and len(text_blocks[i]["lines"]) < 4:
+            if check == 1 and counter == 0:
+                file_data["sentences"].append(table_texts[match_index])
+                file_data["is_header"].append(0)
+                file_data["page_num"].append(int(page.number)+1)
+                file_data["block_num"].append(i)
+                file_data["is_table"].append(1)
+                counter += 1
+            elif check == 1 and counter > 0 and i == len(blocks)-1:
+                file_data["is_table"][-2] = 1
+                counter = 0
+            elif check == 1 and counter > 0:
+                continue
+            elif check == 0 and counter > 0:
+                file_data["is_table"][-2] = 1
+                counter = 0
+                if "lines" in text_blocks[i] and len(text_blocks[i]["lines"]) >= 1 and len(text_blocks[i]["lines"]) < 3 and len(text_blocks[i]["lines"][0]["spans"]) < 2:
                     for line in text_blocks[i]["lines"]:
                         for span in line["spans"]:
                             text = span["text"]
@@ -205,7 +207,34 @@ class ReadingFunctions:
                                 file_data["page_num"].append(int(page.number)+1)
                                 file_data["block_num"].append(i)
                                 file_data["is_table"].append(0)
-                            elif len(text) > 15 and re.search(r'^[^\w\s]+$|^[_]+$',text) == None:
+                            elif len(text) >= 5 and re.search(r'^[^\w\s]+$|^[_]+$',text) == None and re.search(r'\d+(?:\.\d+)+\.',text) == None:
+                                file_data["sentences"].append(text)
+                                file_data["is_header"].append(0)
+                                file_data["page_num"].append(int(page.number)+1)
+                                file_data["block_num"].append(i)
+                                file_data["is_table"].append(0)
+                elif "lines" in text_blocks[i]:
+                    for sent_num in range(len(block[4].split('. '))):
+                        sentence = re.split(r'(?<=[.!?])\s+', block[4])[sent_num].strip()
+                        clean_sentence = self._process_regex(sentence)
+                        if len(clean_sentence) > 15:
+                            file_data["sentences"].append(clean_sentence)
+                            file_data["is_header"].append(0)
+                            file_data["page_num"].append(int(page.number)+1)
+                            file_data["block_num"].append(i)
+                            file_data["is_table"].append(0)
+            else:
+                if "lines" in text_blocks[i] and len(text_blocks[i]["lines"]) >= 1 and len(text_blocks[i]["lines"]) < 3 and len(text_blocks[i]["lines"][0]["spans"]) < 2:
+                    for line in text_blocks[i]["lines"]:
+                        for span in line["spans"]:
+                            text = span["text"]
+                            if span["size"] > 3 and (span["font"].find("Medi") >0 or span["font"].find("Bold") >0 or span["font"].find("B") >0) and len(text) > 3 and text[0].isalpha() and self._header_regex_check(text) == None:
+                                file_data["sentences"].append(text)
+                                file_data["is_header"].append(1)
+                                file_data["page_num"].append(int(page.number)+1)
+                                file_data["block_num"].append(i)
+                                file_data["is_table"].append(0)
+                            elif len(text) >= 5 and re.search(r'^[^\w\s]+$|^[_]+$',text) == None and re.search(r'\d+(?:\.\d+)+\.',text) == None:
                                 file_data["sentences"].append(text)
                                 file_data["is_header"].append(0)
                                 file_data["page_num"].append(int(page.number)+1)
