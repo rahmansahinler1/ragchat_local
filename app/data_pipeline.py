@@ -320,10 +320,8 @@ class FileProcessor:
             sorted_dict = dict(sorted(avg_index_list.items(), key=lambda item: item[1]))
             indexes = np.array(list(sorted_dict.keys()))
             sorted_sentences = indexes[:10]
-            sorted_sentence_indexes =  [(order, int(index)) for order, index in enumerate(sorted_sentences) if globals.is_table[int(index)] == 0]
-            sorted_table_indexes =  [index for index in sorted_sentences if globals.is_table[int(index)] == 1]
-            if sorted_table_indexes:
-                table_context = self.table_context_creator(index_list=sorted_table_indexes)
+            sorted_sentence_indexes = [(order, int(index)) for order, index in enumerate(sorted_sentences) if globals.is_table[int(index)] == 0]
+            sorted_table_indexes = [(order, int(index)) for order, index in enumerate(sorted_sentences) if globals.is_table[int(index)] == 1]
         except ValueError as e:
             original_query = "Please provide meaningful query:"
             print(f"{original_query, {e}}")
@@ -336,6 +334,11 @@ class FileProcessor:
             else:
                 widen_sentences = self.widen_sentences(window_size=1, index=index)
             all_widen_sentences.append(widen_sentences)
+
+        if sorted_table_indexes:
+            table_context = self.table_context_creator(index_list=sorted_table_indexes)
+            for tuple in table_context:
+                all_widen_sentences.insert(tuple[0],tuple[1])
 
         context = self.create_dynamic_context(sentences=all_widen_sentences)
         resources = self.extract_resources(convergence_vector=sorted_sentences)
@@ -437,38 +440,30 @@ class FileProcessor:
     
     def table_context_creator(self, index_list):
         table_clusters = []
-        current_cluster =[]
-        start = None
-        matched_clusters = []
-        table_text = []
-        
+        current_cluster = []
+        text_pairs = []
+        seen_clusters = set()
+
         for i, value in enumerate(globals.is_table):
             if value == 1:
-                if start is None:
-                    start = i
                 current_cluster.append(i)
-            elif value == 0 and start is not None:
+            elif current_cluster:
                 table_clusters.append(current_cluster)
                 current_cluster = []
-                start = None
     
         if current_cluster:
             table_clusters.append(current_cluster)
         
-        for index in index_list:
+        for order, index in index_list:
             for cluster in table_clusters:
                 if cluster[0] <= index <= cluster[-1]:
-                    if cluster not in matched_clusters:
-                        matched_clusters.append(cluster)
+                    cluster_tuple = tuple(cluster)
+                    if cluster_tuple not in seen_clusters:
+                        seen_clusters.add(cluster_tuple)
+                        text = ''.join(globals.sentences[index] + '\n' for index in cluster)
+                        text_pairs.append((order, text))
                         break
-
-        for indexes in matched_clusters:
-            text = '' 
-            for index in indexes:
-                text += globals.sentences[index] + '\n'
-            table_text.append(text)
-
-        return table_text
+        return text_pairs
             
     def query_preprocessing(self, user_query):
         clean_query_list = []

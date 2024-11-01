@@ -191,7 +191,6 @@ class ReadingFunctions:
                 counter += 1
             elif check == 1 and counter > 0 and i == len(blocks)-1:
                 file_data["is_table"][-2] = 1
-                counter = 0
             elif check == 1 and counter > 0:
                 continue
             elif check == 0 and counter > 0:
