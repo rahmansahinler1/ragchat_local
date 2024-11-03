@@ -197,8 +197,17 @@ class ReadingFunctions:
                 doc = Document(path)
                 for para in doc.paragraphs:
                     if para.style.name.startswith('Heading'):
-                        full_text += text + ' '
+                        full_text += para.text + ' '
                 file_data["file_header"].append(full_text)
+            elif file_extension == '.xlsx':
+                wb = openpyxl.load_workbook(filename=path, read_only=True)
+                sheet = wb.active
+                for row in sheet.rows:
+                    for cell in row:
+                        if cell.value is not None and cell.font.bold == True:
+                            full_text += cell.value + ' '
+                file_data["file_header"].append(full_text)
+                wb.close()
         except Exception as e:
             print(f"Error reading file: {path}. Error: {str(e)}")
     
