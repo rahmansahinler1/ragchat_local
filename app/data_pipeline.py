@@ -41,7 +41,7 @@ class FileDetector:
             file_name = file.parts[-1]
             domain = file.parts[-2]
             
-            if file_name.split(".")[-1] not in ["pdf", "docx", "txt", "rtf"]:
+            if file_name.split(".")[-1] not in ["pdf", "docx", "txt", "rtf", "xlsx"]:
                 continue
             
             date_modified = datetime.fromtimestamp(file.stat().st_mtime)

@@ -6,6 +6,7 @@ from datetime import datetime
 import os 
 import fitz
 import re
+import openpyxl
 
 class ReadingFunctions:
     def __init__(self):
@@ -105,7 +106,36 @@ class ReadingFunctions:
                         file_data["page_sentence_amount"].append(sentences_in_this_page)
                         previous_sentence_count = current_sentence_count
                     except TypeError as e:
-                            raise TypeError(f"PDF text could not extracted!: {e}")
+                            raise TypeError(f"Document text could not extracted!: {e}")
+            elif file_extension in ['.xlsx']:
+                    wb = openpyxl.load_workbook(filename=path, read_only=True)
+                    file_stats = os.stat(path)
+                    try:
+                        previous_sentence_count = 0
+                        file_date = datetime.fromtimestamp(file_stats.st_birthtime).strftime('%Y-%m-%d')
+                        file_data["date"].append(file_date)
+                    except TypeError as e:
+                        raise TypeError(f"Excel creation date could not extracted!: {e}")
+                    try:
+                        for sheet_name in wb.sheetnames:
+                            ws = wb[sheet_name]
+                            for row in ws.rows:
+                                for cell in row:
+                                    if cell.value is not None and cell.font.bold == True:
+                                        file_data['sentences'].append(cell.value)
+                                        file_data["is_header"].append(1)
+                                        file_data["is_table"].append(0)
+                                    elif cell.value is not None:
+                                        file_data['sentences'].append(cell.value)
+                                        file_data["is_header"].append(0)
+                                        file_data["is_table"].append(0)
+                            current_sentence_count = len(file_data["sentences"])
+                            sentences_in_this_page = current_sentence_count - previous_sentence_count
+                            file_data["page_sentence_amount"].append(sentences_in_this_page)
+                            previous_sentence_count = current_sentence_count
+                            wb.close()
+                    except TypeError as e:
+                                raise TypeError(f"Excel text could not extracted!: {e}")
             elif file_extension in ['.txt', '.rtf']:
                 txt_date = os.path.getctime(path)
                 file_data["date"].append(txt_date)
