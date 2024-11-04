@@ -108,7 +108,7 @@ class ReadingFunctions:
                     except TypeError as e:
                             raise TypeError(f"Document text could not extracted!: {e}")
             elif file_extension in ['.xlsx']:
-                    wb = openpyxl.load_workbook(filename=path, read_only=True)
+                    wb = openpyxl.load_workbook(filename=path)
                     file_stats = os.stat(path)
                     count=0
                     try:
@@ -122,7 +122,6 @@ class ReadingFunctions:
                             ws = wb[sheet_name]
                             if len(ws.tables)>0:
                                 self._extact_excel_tables(worksheet=ws, file_data=file_data, count=count)
-                                ws
                             full_text = ''
                             for row in ws.rows:
                                 for cell in row:
