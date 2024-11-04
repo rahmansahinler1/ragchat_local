@@ -110,6 +110,7 @@ class ReadingFunctions:
             elif file_extension in ['.xlsx']:
                     wb = openpyxl.load_workbook(filename=path, read_only=True)
                     file_stats = os.stat(path)
+                    count=0
                     try:
                         previous_sentence_count = 0
                         file_date = datetime.fromtimestamp(file_stats.st_birthtime).strftime('%Y-%m-%d')
@@ -119,23 +120,26 @@ class ReadingFunctions:
                     try:
                         for sheet_name in wb.sheetnames:
                             ws = wb[sheet_name]
+                            full_text = ''
                             for row in ws.rows:
                                 for cell in row:
-                                    if cell.value is not None and cell.font.bold == True:
-                                        file_data['sentences'].append(cell.value)
-                                        file_data["is_header"].append(1)
-                                        file_data["is_table"].append(0)
-                                    elif cell.value is not None:
-                                        file_data['sentences'].append(cell.value)
-                                        file_data["is_header"].append(0)
-                                        file_data["is_table"].append(0)
+                                    text = cell.value
+                                    if text is not None:
+                                        full_text += str(text) + ' '
+                                full_text += '\n'
+                            count += 1
+                            file_data['sentences'].append(full_text)
+                            file_data['is_header'].append(0)
+                            file_data['is_table'].append(0)
+                            file_data['page_num'].append(count)
                             current_sentence_count = len(file_data["sentences"])
                             sentences_in_this_page = current_sentence_count - previous_sentence_count
                             file_data["page_sentence_amount"].append(sentences_in_this_page)
                             previous_sentence_count = current_sentence_count
-                            wb.close()
                     except TypeError as e:
                                 raise TypeError(f"Excel text could not extracted!: {e}")
+                    finally: 
+                            wb.close()
             elif file_extension in ['.txt', '.rtf']:
                 txt_date = os.path.getctime(path)
                 file_data["date"].append(txt_date)
@@ -201,12 +205,8 @@ class ReadingFunctions:
                 file_data["file_header"].append(full_text)
             elif file_extension == '.xlsx':
                 wb = openpyxl.load_workbook(filename=path, read_only=True)
-                sheet = wb.active
-                for row in sheet.rows:
-                    for cell in row:
-                        if cell.value is not None and cell.font.bold == True:
-                            full_text += cell.value + ' '
-                file_data["file_header"].append(full_text)
+                first_sheet = wb.active
+                file_data["file_header"].append(first_sheet.title)
                 wb.close()
         except Exception as e:
             print(f"Error reading file: {path}. Error: {str(e)}")

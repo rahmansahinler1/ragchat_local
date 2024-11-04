@@ -393,26 +393,29 @@ class FileProcessor:
         original_query = query.split('\n')[0]
 
         header_indexes = [index for index in range(len(globals.is_header)) if globals.is_header[index]]
-        headers = [globals.sentences[header_index] for header_index in header_indexes]
+        if header_indexes:
+            headers = [globals.sentences[header_index] for header_index in header_indexes]
 
-        header_embeddings = self.ef.create_vector_embeddings_from_sentences(sentences=headers)
-        index_header = self.create_index(embeddings=header_embeddings)
+            header_embeddings = self.ef.create_vector_embeddings_from_sentences(sentences=headers)
+            index_header = self.create_index(embeddings=header_embeddings)
 
-        D,I = index_header.search(self.ef.create_vector_embedding_from_query(original_query),10)
-        filtered_header_indexes = [header_index for index, header_index in enumerate(I[0]) if D[0][index] < 0.40]
-        for i,filtered_index in enumerate(filtered_header_indexes):
-            try:
-                start = header_indexes[filtered_index] + 1
-                end = header_indexes[filtered_index + 1]
-                if i == 0:
-                    boost[start:end] *= 0.7
-                elif i in range(1,3):
-                    boost[start:end] *= 0.8
-                else:
-                    boost[start:end] *= 0.9
-            except IndexError as e:
-                print(f"List is out of range {e}")
-        return boost
+            D,I = index_header.search(self.ef.create_vector_embedding_from_query(original_query),10)
+            filtered_header_indexes = [header_index for index, header_index in enumerate(I[0]) if D[0][index] < 0.40]
+            for i,filtered_index in enumerate(filtered_header_indexes):
+                try:
+                    start = header_indexes[filtered_index] + 1
+                    end = header_indexes[filtered_index + 1]
+                    if i == 0:
+                        boost[start:end] *= 0.7
+                    elif i in range(1,3):
+                        boost[start:end] *= 0.8
+                    else:
+                        boost[start:end] *= 0.9
+                except IndexError as e:
+                    print(f"List is out of range {e}")
+            return boost
+        else:
+            return boost
 
     # Search on file header function
     def search_file_header_index(self,query):
