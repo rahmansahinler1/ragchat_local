@@ -120,6 +120,9 @@ class ReadingFunctions:
                     try:
                         for sheet_name in wb.sheetnames:
                             ws = wb[sheet_name]
+                            if len(ws.tables)>0:
+                                self._extact_excel_tables(worksheet=ws, file_data=file_data, count=count)
+                                ws
                             full_text = ''
                             for row in ws.rows:
                                 for cell in row:
@@ -307,3 +310,17 @@ class ReadingFunctions:
             if table_bbox[1] <= block[1] <= table_bbox[3] and table_bbox[0] <= block[0] <= table_bbox[2]:
                 return j, 1
         return -1, 0
+    
+    def _extact_excel_tables(worksheet, file_data, count):
+        for table in worksheet.tables:
+            ref = table.ref
+            for row in worksheet[ref]:
+                for cell in row:
+                    text = cell.value
+                    if text is not None:
+                        full_text += str(text) + ' '
+            full_text += '\n'
+            file_data['sentences'].append(full_text)
+            file_data['is_header'].append(0)
+            file_data['is_table'].append(1)
+            file_data['page_num'].append(count)
