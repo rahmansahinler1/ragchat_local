@@ -45,10 +45,10 @@ class ReadingFunctions:
                             page = file.load_page(page_num)
                             tables = page.find_tables()
                             image_list = page.get_images()
+                            if image_list:
+                                self._extract_pdf_image(file,image_list,file_data,page_num)
                             if tables.tables:
                                 self._extract_pdf_tables(page,file_data,tables)
-                            elif image_list:
-                                self._extract_pdf_image(file,image_list,file_data,page_num)
                             else:
                                 block_text = page.get_text("blocks")
                                 blocks = page.get_text("dict")["blocks"]
@@ -323,4 +323,4 @@ class ReadingFunctions:
             base_image = doc.extract_image(xref)
             image_bytes = base_image["image"]
             file_data["image_bytes"].append(image_bytes)
-            file_data["image_page"].append(page_num)
+            file_data["image_page"].append(page_num+1)
