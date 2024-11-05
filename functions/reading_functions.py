@@ -205,8 +205,11 @@ class ReadingFunctions:
                 file_data["file_header"].append(full_text)
             elif file_extension == '.xlsx':
                 wb = openpyxl.load_workbook(filename=path, read_only=True)
-                first_sheet = wb.active
-                file_data["file_header"].append(first_sheet.title)
+                titles = ''
+                for sheetname in wb.sheetnames:
+                    ws = wb[sheetname]
+                    titles += ws.title + ' '
+                file_data["file_header"].append(titles)
                 wb.close()
         except Exception as e:
             print(f"Error reading file: {path}. Error: {str(e)}")
