@@ -25,6 +25,8 @@ class ReadingFunctions:
             "block_num": [],
             "file_header" : [],
             "is_table" : [],
+            "image_bytes" : [],
+            "image_page" : []
         }
         # Open file
         path = Path(file_path)
@@ -42,8 +44,11 @@ class ReadingFunctions:
                         for page_num in range(len(file)):
                             page = file.load_page(page_num)
                             tables = page.find_tables()
+                            image_list = page.get_images()
                             if tables.tables:
                                 self._extract_pdf_tables(page,file_data,tables)
+                            elif image_list:
+                                self._extract_pdf_image(file,image_list,file_data,page_num)
                             else:
                                 block_text = page.get_text("blocks")
                                 blocks = page.get_text("dict")["blocks"]
@@ -310,4 +315,12 @@ class ReadingFunctions:
             if table_bbox[1] <= block[1] <= table_bbox[3] and table_bbox[0] <= block[0] <= table_bbox[2]:
                 return j, 1
         return -1, 0
-    
+
+    # PDF image extraction function
+    def _extract_pdf_image(self, doc, image_list, file_data, page_num):
+        for img in image_list:
+            xref = img[0]
+            base_image = doc.extract_image(xref)
+            image_bytes = base_image["image"]
+            file_data["image_bytes"].append(image_bytes)
+            file_data["image_page"].append(page_num)
