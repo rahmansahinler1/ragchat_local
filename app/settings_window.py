@@ -212,6 +212,7 @@ class Window(tk.Toplevel):
                 globals.sentences = index_object_filtered["sentences"]
                 globals.is_header = index_object_filtered["is_header"]
                 globals.file_headers = index_object_filtered["file_header"]
+                globals.is_table = index_object_filtered["is_table"]
             except FileNotFoundError:
                 messagebox.showerror("Error!", "No file registered database under this domain. Please insert one and click <run file detection> or run the ragchat again!")
         else:
