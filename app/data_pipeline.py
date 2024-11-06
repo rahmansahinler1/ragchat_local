@@ -124,7 +124,10 @@ class FileProcessor:
                 index_object["block_num"].extend(block for block in value["block_num"])
                 index_object["is_header"].extend(header for header in value["is_header"])
                 index_object["is_table"].extend(header for header in value["is_table"])
+                index_object["image_bytes"].extend(header for header in value["image_bytes"])
+                index_object["image_page"].extend(header for header in value["image_page"])
                 index_object["embeddings"] = np.vstack((index_object["embeddings"], value["embeddings"]))
+                index_object["image_embeddings"] = np.vstack((index_object["image_embeddings"], value["image_embeddings"]))
                 
                 self.indf.save_index(
                     index_object=index_object,
@@ -356,6 +359,7 @@ class FileProcessor:
         file_data = self.rf.read_file(file_path=change["file_path"])
         self.rf._extract_file_header(file_path=change["file_path"],file_data=file_data)
         file_embeddings = self.ef.create_vector_embeddings_from_sentences(sentences=file_data["sentences"])
+        image_embeddings = self.ef.create_image_embeddings_from_bytes(image_bytes=file_data["image_bytes"])
 
         # Detect changed domain
         pattern = r'domain\d+'
@@ -372,7 +376,10 @@ class FileProcessor:
                 self.change_dict[domain]["block_num"].extend(file_data["block_num"])
                 self.change_dict[domain]["is_header"].extend(file_data["is_header"])
                 self.change_dict[domain]["is_table"].extend(file_data["is_table"])
+                self.change_dict[domain]["image_bytes"].extend(file_data["image_bytes"])
+                self.change_dict[domain]["image_page"].extend(file_data["image_page"])
                 self.change_dict[domain]["embeddings"] = np.vstack((self.change_dict[domain]["embeddings"], file_embeddings))
+                self.change_dict[domain]["image_embeddings"] = np.vstack((self.change_dict[domain]["image_embeddings"], image_embeddings))
             else:
                 self.change_dict[domain] = {
                     "file_path": [change["file_path"]],
@@ -381,6 +388,9 @@ class FileProcessor:
                     "date" : file_data["date"],
                     "file_header" : file_data["file_header"],
                     "embeddings": file_embeddings,
+                    "image_embeddings": image_embeddings,
+                    "image_bytes": file_data["image_bytes"],
+                    "image_page": file_data["image_page"],
                     "page_num" : file_data["page_num"],
                     "block_num" : file_data["block_num"],
                     "is_header" : file_data["is_header"],
