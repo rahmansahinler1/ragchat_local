@@ -123,6 +123,7 @@ class FileProcessor:
                 index_object["page_num"].extend(page for page in value["page_num"])
                 index_object["block_num"].extend(block for block in value["block_num"])
                 index_object["is_header"].extend(header for header in value["is_header"])
+                index_object["is_table"].extend(header for header in value["is_table"])
                 index_object["embeddings"] = np.vstack((index_object["embeddings"], value["embeddings"]))
                 
                 self.indf.save_index(
@@ -161,6 +162,7 @@ class FileProcessor:
                     change_index_finish = change_index_start + sum(index_object["file_sentence_amount"][file_index]) + diff
                     index_object["sentences"][change_index_start:change_index_finish] = value["sentences"][cumulative_index: sum(value["file_sentence_amount"][i])]
                     index_object["is_header"][change_index_start:change_index_finish] = value["is_header"][cumulative_index: sum(value["file_sentence_amount"][i])]
+                    index_object["is_table"][change_index_start:change_index_finish] = value["is_table"][cumulative_index: sum(value["file_sentence_amount"][i])]
                     index_object["page_num"][change_index_start:change_index_finish] = value["page_num"][cumulative_index: sum(value["file_sentence_amount"][i])]
                     index_object["block_num"][change_index_start:change_index_finish] = value["block_num"][cumulative_index: sum(value["file_sentence_amount"][i])]
                     index_object["embeddings"][change_index_start:change_index_finish] = value["embeddings"][cumulative_index: sum(value["file_sentence_amount"][i])]
@@ -201,6 +203,7 @@ class FileProcessor:
                     change_index_finish = change_index_start + sum(index_object["file_sentence_amount"][file_path_index])
                     del index_object["sentences"][change_index_start:change_index_finish]
                     del index_object["is_header"][change_index_start:change_index_finish]
+                    del index_object["is_table"][change_index_start:change_index_finish]
                     del index_object["page_num"][change_index_start:change_index_finish]
                     del index_object["block_num"][change_index_start:change_index_finish]
                     index_object["embeddings"] = np.delete(index_object["embeddings"], np.arange(change_index_start, change_index_finish), axis=0)
@@ -208,7 +211,7 @@ class FileProcessor:
                     index_object["date"].pop(file_path_index)
                     index_object["file_header"].pop(file_path_index)
                     index_object["file_sentence_amount"].pop(file_path_index)
-                   
+
                    #Removing pickle if file is empty
                     if len(index_object["file_path"]) == 0:
                         Path.unlink(index_path)
@@ -228,6 +231,7 @@ class FileProcessor:
             date = None
         ):
         shape = index_object["embeddings"].shape
+        table_shape = index_object["embeddings"].shape
         filtered_index = {
                 "file_path": [],
                 "file_sentence_amount": [],
@@ -235,9 +239,10 @@ class FileProcessor:
                 "date" : [],
                 "file_header" : [],
                 "is_header": [],
+                "is_table": [],
                 "page_num": [],
                 "block_num": [],
-                "embeddings": np.empty(shape=shape)
+                "embeddings": np.empty(shape=shape),
         }
         file_path_indexes = []
         if date:
@@ -259,9 +264,12 @@ class FileProcessor:
                 try:
                     sentence_start = sum(sum(page_sentences) for page_sentences in index_object["file_sentence_amount"][:index])
                     sentence_end =  sentence_start + sum(index_object["file_sentence_amount"][index])
+                    table_start = sum(sum(table_amount) for table_amount in index_object["file_table_amount"][:index])
+                    table_end =  table_start + sum(index_object["file_table_amount"][index])
 
                     filtered_index["sentences"].extend(index_object["sentences"][sentence_start:sentence_end])
                     filtered_index["is_header"].extend(index_object["is_header"][sentence_start:sentence_end])
+                    filtered_index["is_table"].extend(index_object["is_table"][sentence_start:sentence_end])
                     filtered_index["page_num"].extend(index_object["page_num"][sentence_start:sentence_end])
                     filtered_index["block_num"].extend(index_object["block_num"][sentence_start:sentence_end])
                     filtered_index["boost"].extend(index_object["boost"][sentence_start:sentence_end])
@@ -312,18 +320,25 @@ class FileProcessor:
             sorted_dict = dict(sorted(avg_index_list.items(), key=lambda item: item[1]))
             indexes = np.array(list(sorted_dict.keys()))
             sorted_sentences = indexes[:10]
+            sorted_sentence_indexes = [(order, int(index)) for order, index in enumerate(sorted_sentences) if globals.is_table[int(index)] == 0]
+            sorted_table_indexes = [(order, int(index)) for order, index in enumerate(sorted_sentences) if globals.is_table[int(index)] == 1]
         except ValueError as e:
             original_query = "Please provide meaningful query:"
             print(f"{original_query, {e}}")
 
-        for i in range(len(sorted_sentences)):
-            if i == 0:
-                widen_sentences = self.widen_sentences(window_size=3, convergence_vector=sorted_sentences[i:i+1])
-            elif i in range(1,4):
-                widen_sentences = self.widen_sentences(window_size=2, convergence_vector=sorted_sentences[i:i+1])
+        for order,index in sorted_sentence_indexes:
+            if order == 0:
+                widen_sentences = self.widen_sentences(window_size=3, index=index)
+            elif order in range(1,4):
+                widen_sentences = self.widen_sentences(window_size=2, index=index)
             else:
-                widen_sentences = self.widen_sentences(window_size=1, convergence_vector=sorted_sentences[i:i+1])
-            all_widen_sentences.extend(widen_sentences)
+                widen_sentences = self.widen_sentences(window_size=1, index=index)
+            all_widen_sentences.append(widen_sentences)
+
+        if sorted_table_indexes:
+            table_context = self.table_context_creator(index_list=sorted_table_indexes)
+            for tuple in table_context:
+                all_widen_sentences.insert(tuple[0],tuple[1])
 
         context = self.create_dynamic_context(sentences=all_widen_sentences)
         resources = self.extract_resources(convergence_vector=sorted_sentences)
@@ -356,6 +371,7 @@ class FileProcessor:
                 self.change_dict[domain]["page_num"].extend(file_data["page_num"])
                 self.change_dict[domain]["block_num"].extend(file_data["block_num"])
                 self.change_dict[domain]["is_header"].extend(file_data["is_header"])
+                self.change_dict[domain]["is_table"].extend(file_data["is_table"])
                 self.change_dict[domain]["embeddings"] = np.vstack((self.change_dict[domain]["embeddings"], file_embeddings))
             else:
                 self.change_dict[domain] = {
@@ -368,6 +384,7 @@ class FileProcessor:
                     "page_num" : file_data["page_num"],
                     "block_num" : file_data["block_num"],
                     "is_header" : file_data["is_header"],
+                    "is_table" : file_data["is_table"],
                 }
 
     # Boost most semanticaly similar headers sentences
@@ -421,6 +438,33 @@ class FileProcessor:
                     print(f"List is out of range {e}")
         return boost
     
+    def table_context_creator(self, index_list):
+        table_clusters = []
+        current_cluster = []
+        text_pairs = []
+        seen_clusters = set()
+
+        for i, value in enumerate(globals.is_table):
+            if value == 1:
+                current_cluster.append(i)
+            elif current_cluster:
+                table_clusters.append(current_cluster)
+                current_cluster = []
+    
+        if current_cluster:
+            table_clusters.append(current_cluster)
+        
+        for order, index in index_list:
+            for cluster in table_clusters:
+                if cluster[0] <= index <= cluster[-1]:
+                    cluster_tuple = tuple(cluster)
+                    if cluster_tuple not in seen_clusters:
+                        seen_clusters.add(cluster_tuple)
+                        text = ''.join(globals.sentences[index] + '\n' for index in cluster)
+                        text_pairs.append((order, text))
+                        break
+        return text_pairs
+            
     def query_preprocessing(self, user_query):
         clean_query_list = []
         splitted_queries = user_query.split('\n')
@@ -436,7 +480,7 @@ class FileProcessor:
     def create_dynamic_context(self, sentences):
         context = ""
         for i, sentence in enumerate(sentences, 1):
-            context += f"Context{i}: {sentence} Confidence: {(len(sentences)-i+1)/len(sentences)} \n "
+            context += f"Context{i}: {sentence} Confidence: {(len(sentences)-i+1)/len(sentences)} \n"
         return context
 
     def avg_resources(self, resources_dict):
@@ -446,16 +490,13 @@ class FileProcessor:
             resources_dict[key] = value_coefficient
         return resources_dict
 
-    def widen_sentences(self, window_size: int, convergence_vector: np.ndarray):  
-        widen_sentences = []
-        for index in convergence_vector:
-            text = ""
-            start = max(0, index - window_size)
-            end = min(len(globals.sentences) - 1, index + window_size)
-            for i in range(start, end+1):
-                text += globals.sentences[i]
-            widen_sentences.append(text)
-        return widen_sentences
+    def widen_sentences(self, window_size: int, index: int):  
+        text = ""
+        start = max(0, index - window_size)
+        end = min(len(globals.sentences) - 1, index + window_size)
+        for i in range(start, end+1):
+            text += globals.sentences[i]
+        return text
 
     def extract_resources(self, convergence_vector: np.ndarray):
         resources = []
