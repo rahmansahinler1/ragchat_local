@@ -6,3 +6,5 @@ index = None
 is_header = None
 is_table = None
 file_headers = None
+file_image_amount = None
+images = None

@@ -206,10 +206,12 @@ class Window(tk.Toplevel):
             try:
                 index_object = self.processor.indf.load_index(index_path=index_path)
                 index_object_filtered = self.processor.index_filter(index_object,date = self.filter_date())
-                globals.index = self.processor.create_index(embeddings=index_object_filtered["embeddings"])
+                globals.index = self.processor.create_index(embeddings=index_object_filtered["embeddings"],index_type="flat")
                 globals.files = index_object_filtered["file_path"]
                 globals.file_sentence_amount = index_object_filtered["file_sentence_amount"]
+                globals.file_image_amount = index_object_filtered["file_image_amount"]
                 globals.sentences = index_object_filtered["sentences"]
+                globals.images = index_object_filtered["image_bytes"]
                 globals.is_header = index_object_filtered["is_header"]
                 globals.file_headers = index_object_filtered["file_header"]
                 globals.is_table = index_object_filtered["is_table"]

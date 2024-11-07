@@ -17,6 +17,14 @@ class IndexingFunctions:
         index.add(embeddings)
         return index
 
+    def create_IP_index(self,
+                    embeddings:np.ndarray,
+        ):
+        dimension = len(embeddings[0])
+        index = faiss.IndexFlatIP(dimension)
+        index.add(embeddings)
+        return index
+
     def load_index(self,
                    index_path: Path
         ):

@@ -26,7 +26,7 @@ class ReadingFunctions:
             "file_header" : [],
             "is_table" : [],
             "image_bytes" : [],
-            "image_page" : []
+            "page_image_amount" : []
         }
         # Open file
         path = Path(file_path)
@@ -46,7 +46,9 @@ class ReadingFunctions:
                             tables = page.find_tables()
                             image_list = page.get_images()
                             if image_list:
-                                self._extract_pdf_image(file,image_list,file_data,page_num)
+                                self._extract_pdf_image(file,image_list,file_data)
+                            else:
+                                file_data["page_image_amount"].append(0)
                             if tables.tables:
                                 self._extract_pdf_tables(page,file_data,tables)
                             else:
@@ -317,10 +319,13 @@ class ReadingFunctions:
         return -1, 0
 
     # PDF image extraction function
-    def _extract_pdf_image(self, doc, image_list, file_data, page_num):
+    def _extract_pdf_image(self, doc, image_list, file_data):
+        previous_image_count = sum(file_data["page_image_amount"])
         for img in image_list:
             xref = img[0]
             base_image = doc.extract_image(xref)
             image_bytes = base_image["image"]
             file_data["image_bytes"].append(image_bytes)
-            file_data["image_page"].append(page_num+1)
+        current_image_count = len(file_data["image_bytes"])
+        image_in_this_page = current_image_count - previous_image_count
+        file_data["page_image_amount"].append(image_in_this_page)

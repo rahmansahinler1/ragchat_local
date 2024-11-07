@@ -48,7 +48,7 @@ class EmbeddingFunctions:
 
         return np.array(image_embeddings, float)
     
-    def create_embedding_from_query(self, query):
+    def create_embedding_from_query_image(self, query):
         inputs = self.processor(text=query, return_tensors="pt", padding=True)
         text_features = self.model.get_text_features(**inputs)
 

@@ -93,10 +93,12 @@ class FileProcessor:
     def create_index(
             self,
             embeddings: np.ndarray,
-            index_type: str = "flat"
+            index_type: str
         ):
         if index_type == "flat":
             index = self.indf.create_flat_index(embeddings=embeddings)
+        elif index_type == "IP":
+            index = self.indf.create_IP_index(embeddings=embeddings)
         return index
 
 
@@ -123,9 +125,9 @@ class FileProcessor:
                 index_object["page_num"].extend(page for page in value["page_num"])
                 index_object["block_num"].extend(block for block in value["block_num"])
                 index_object["is_header"].extend(header for header in value["is_header"])
-                index_object["is_table"].extend(header for header in value["is_table"])
-                index_object["image_bytes"].extend(header for header in value["image_bytes"])
-                index_object["image_page"].extend(header for header in value["image_page"])
+                index_object["is_table"].extend(table for table in value["is_table"])
+                index_object["image_bytes"].extend(image for image in value["image_bytes"])
+                index_object["file_image_amount"].extend(image_page for image_page in value["file_image_amount"])
                 index_object["embeddings"] = np.vstack((index_object["embeddings"], value["embeddings"]))
                 index_object["image_embeddings"] = np.vstack((index_object["image_embeddings"], value["image_embeddings"]))
                 
@@ -159,19 +161,27 @@ class FileProcessor:
                 # Update corresponding index and sentences with matching change and index object according to sentence amounts
                 cumulative_index = 0
                 diff = 0
+                diff_image = 0
+                image_cumulative_index = 0
                 for i, file_index in enumerate(file_path_indexes):
                     # Data assignments
                     change_index_start = sum(sum(page_sentence_amount) for page_sentence_amount in index_object["file_sentence_amount"][:file_index]) + diff
                     change_index_finish = change_index_start + sum(index_object["file_sentence_amount"][file_index]) + diff
+                    image_index_start = sum(sum(page_image_amount) for page_image_amount in index_object["file_image_amount"][:file_index]) + diff_image
+                    image_index_finish = image_index_start + sum(index_object["file_image_amount"][file_index]) + diff_image
                     index_object["sentences"][change_index_start:change_index_finish] = value["sentences"][cumulative_index: sum(value["file_sentence_amount"][i])]
                     index_object["is_header"][change_index_start:change_index_finish] = value["is_header"][cumulative_index: sum(value["file_sentence_amount"][i])]
                     index_object["is_table"][change_index_start:change_index_finish] = value["is_table"][cumulative_index: sum(value["file_sentence_amount"][i])]
                     index_object["page_num"][change_index_start:change_index_finish] = value["page_num"][cumulative_index: sum(value["file_sentence_amount"][i])]
                     index_object["block_num"][change_index_start:change_index_finish] = value["block_num"][cumulative_index: sum(value["file_sentence_amount"][i])]
+                    index_object["image_bytes"][image_index_start:image_index_finish] = value["image_bytes"][image_cumulative_index: sum(value["file_image_amount"][i])]
                     index_object["embeddings"][change_index_start:change_index_finish] = value["embeddings"][cumulative_index: sum(value["file_sentence_amount"][i])]
+                    index_object["image_embeddings"][image_index_start:image_index_finish] = value["image_embeddings"][image_cumulative_index: sum(value["file_image_amount"][i])]
                     # Index differences for next iteration
                     diff = len(value["sentences"][cumulative_index: sum(value["file_sentence_amount"][i])]) - len(index_object["sentences"][change_index_start:change_index_finish])
                     cumulative_index = sum(value["file_sentence_amount"][i])
+                    diff_image = len(value["image_bytes"][image_cumulative_index: sum(value["file_image_amount"][i])]) - len(index_object["image_bytes"][image_index_start:image_index_finish])
+                    image_cumulative_index = sum(value["file_image_amount"][i])
                 # Update sentence amounts list
                 for i, file_index in enumerate(file_path_indexes):
                     index_object["file_sentence_amount"][file_index] = value["file_sentence_amount"][i]
@@ -204,16 +214,21 @@ class FileProcessor:
                     # Delete corresponding parts from the index object
                     change_index_start = sum(sum(page_sentence_amount) for page_sentence_amount in index_object["file_sentence_amount"][:file_path_index])
                     change_index_finish = change_index_start + sum(index_object["file_sentence_amount"][file_path_index])
+                    image_index_start = sum(sum(page_image_amount) for page_image_amount in index_object["file_image_amount"][:file_path_index])
+                    image_index_finish = change_index_start + sum(index_object["file_image_amount"][file_path_index])
                     del index_object["sentences"][change_index_start:change_index_finish]
                     del index_object["is_header"][change_index_start:change_index_finish]
                     del index_object["is_table"][change_index_start:change_index_finish]
                     del index_object["page_num"][change_index_start:change_index_finish]
                     del index_object["block_num"][change_index_start:change_index_finish]
+                    del index_object["image_bytes"][image_index_start:image_index_finish]
                     index_object["embeddings"] = np.delete(index_object["embeddings"], np.arange(change_index_start, change_index_finish), axis=0)
+                    index_object["image_embeddings"] = np.delete(index_object["image_embeddings"], np.arange(image_index_start, image_index_finish), axis=0)
                     index_object["file_path"].pop(file_path_index)
                     index_object["date"].pop(file_path_index)
                     index_object["file_header"].pop(file_path_index)
                     index_object["file_sentence_amount"].pop(file_path_index)
+                    index_object["file_image_amount"].pop(file_path_index)
 
                    #Removing pickle if file is empty
                     if len(index_object["file_path"]) == 0:
@@ -234,10 +249,11 @@ class FileProcessor:
             date = None
         ):
         shape = index_object["embeddings"].shape
-        table_shape = index_object["embeddings"].shape
+        image_shape = index_object["image_embeddings"].shape
         filtered_index = {
                 "file_path": [],
                 "file_sentence_amount": [],
+                "file_image_amount": [],
                 "sentences" : [],
                 "date" : [],
                 "file_header" : [],
@@ -245,7 +261,9 @@ class FileProcessor:
                 "is_table": [],
                 "page_num": [],
                 "block_num": [],
+                "image_bytes": [],
                 "embeddings": np.empty(shape=shape),
+                "image_embeddings": np.empty(shape=image_shape),
         }
         file_path_indexes = []
         if date:
@@ -258,6 +276,7 @@ class FileProcessor:
                         try:
                             filtered_index["file_path"].append(index_object["file_path"][i])
                             filtered_index["file_sentence_amount"].append(index_object["file_sentence_amount"][i])
+                            filtered_index["file_image_amount"].append(index_object["file_image_amount"][i])
                             filtered_index["date"].append(index_object["date"][i])
                             filtered_index["file_header"].append(index_object["file_header"][i])
                         except FileNotFoundError as e:
@@ -267,16 +286,17 @@ class FileProcessor:
                 try:
                     sentence_start = sum(sum(page_sentences) for page_sentences in index_object["file_sentence_amount"][:index])
                     sentence_end =  sentence_start + sum(index_object["file_sentence_amount"][index])
-                    table_start = sum(sum(table_amount) for table_amount in index_object["file_table_amount"][:index])
-                    table_end =  table_start + sum(index_object["file_table_amount"][index])
+                    image_start = sum(sum(page_images) for page_images in index_object["file_image_amount"][:index])
+                    image_end =  image_start + sum(index_object["file_image_amount"][index])
 
                     filtered_index["sentences"].extend(index_object["sentences"][sentence_start:sentence_end])
                     filtered_index["is_header"].extend(index_object["is_header"][sentence_start:sentence_end])
                     filtered_index["is_table"].extend(index_object["is_table"][sentence_start:sentence_end])
                     filtered_index["page_num"].extend(index_object["page_num"][sentence_start:sentence_end])
                     filtered_index["block_num"].extend(index_object["block_num"][sentence_start:sentence_end])
-                    filtered_index["boost"].extend(index_object["boost"][sentence_start:sentence_end])
+                    filtered_index["image_bytes"].extend(index_object["image_bytes"][image_start:image_end])
                     filtered_index["embeddings"] = np.vstack((index_object["embeddings"][sentence_start:sentence_end],filtered_index["embeddings"]))
+                    filtered_index["image_embeddings"] = np.vstack((index_object["image_embeddings"][image_start:image_end],filtered_index["image_embeddings"]))
 
                 except FileNotFoundError as e:
                     raise FileExistsError(f"Index file could not be found for filtering!: {e}")
@@ -301,7 +321,8 @@ class FileProcessor:
             processed_queries = user_query.split("\n")
             processed_queries = processed_queries[:6]
             original_query = processed_queries[0]
-
+        if globals.images:
+            image_resources = self.image_search(query=original_query)
         boost = self.search_index_header(query=original_query)
         boost_file_header = self.search_file_header_index(query=original_query)
         boost_combined = 0.75 * boost + 0.25 * boost_file_header
@@ -344,7 +365,7 @@ class FileProcessor:
                 all_widen_sentences.insert(tuple[0],tuple[1])
 
         context = self.create_dynamic_context(sentences=all_widen_sentences)
-        resources = self.extract_resources(convergence_vector=sorted_sentences)
+        resources = self.extract_resources(convergence_vector=sorted_sentences,amount=globals.file_sentence_amount)
         resources_text = "- References in " + globals.selected_domain + ":"
         for i, resource in enumerate(resources):
             resources_text += textwrap.dedent(f"""
@@ -377,7 +398,7 @@ class FileProcessor:
                 self.change_dict[domain]["is_header"].extend(file_data["is_header"])
                 self.change_dict[domain]["is_table"].extend(file_data["is_table"])
                 self.change_dict[domain]["image_bytes"].extend(file_data["image_bytes"])
-                self.change_dict[domain]["image_page"].extend(file_data["image_page"])
+                self.change_dict[domain]["file_image_amount"].append(file_data["page_image_amount"])
                 self.change_dict[domain]["embeddings"] = np.vstack((self.change_dict[domain]["embeddings"], file_embeddings))
                 self.change_dict[domain]["image_embeddings"] = np.vstack((self.change_dict[domain]["image_embeddings"], image_embeddings))
             else:
@@ -390,7 +411,7 @@ class FileProcessor:
                     "embeddings": file_embeddings,
                     "image_embeddings": image_embeddings,
                     "image_bytes": file_data["image_bytes"],
-                    "image_page": file_data["image_page"],
+                    "file_image_amount": [file_data["page_image_amount"]],
                     "page_num" : file_data["page_num"],
                     "block_num" : file_data["block_num"],
                     "is_header" : file_data["is_header"],
@@ -407,7 +428,7 @@ class FileProcessor:
             headers = [globals.sentences[header_index] for header_index in header_indexes]
 
             header_embeddings = self.ef.create_vector_embeddings_from_sentences(sentences=headers)
-            index_header = self.create_index(embeddings=header_embeddings)
+            index_header = self.create_index(embeddings=header_embeddings,index_type="flat")
 
             D,I = index_header.search(self.ef.create_vector_embedding_from_query(original_query),10)
             filtered_header_indexes = [header_index for index, header_index in enumerate(I[0]) if D[0][index] < 0.40]
@@ -432,25 +453,45 @@ class FileProcessor:
         boost = np.ones(len(globals.sentences))
         original_query = query.split('\n')[0]
 
-        file_header_embeddings = self.ef.create_vector_embeddings_from_sentences(globals.file_headers)
-        file_header_index = self.create_index(file_header_embeddings)
+        if globals.file_headers:
+            file_header_embeddings = self.ef.create_vector_embeddings_from_sentences(globals.file_headers)
+            file_header_index = self.create_index(file_header_embeddings,index_type="flat")
 
-        D,I = file_header_index.search(self.ef.create_vector_embedding_from_query(query=original_query),len(globals.file_headers))
-        if sum(D[0])/len(D[0]) < 0.45:
-            file_indexes = [file_index for index, file_index in enumerate(I[0]) if D[0][index] < sum(D[0])/len(D[0])]
-        else:
-            file_indexes = [file_index for index, file_index in enumerate(I[0]) if D[0][index] < 0.45]
+            D,I = file_header_index.search(self.ef.create_vector_embedding_from_query(query=original_query),len(globals.file_headers))
+            if sum(D[0])/len(D[0]) < 0.45:
+                file_indexes = [file_index for index, file_index in enumerate(I[0]) if D[0][index] < sum(D[0])/len(D[0])]
+            else:
+                file_indexes = [file_index for index, file_index in enumerate(I[0]) if D[0][index] < 0.45]
 
-        if file_indexes:
-            for i, index in enumerate(file_indexes):
-                try:
-                    start = sum(sum(page_sentence_amount) for page_sentence_amount in globals.file_sentence_amount[:index])
-                    end = start + sum(globals.file_sentence_amount[index])
-                    boost[start:end] *= 0.9
-                except IndexError as e:
-                    print(f"List is out of range {e}")
-        return boost
+            if file_indexes:
+                for index in file_indexes:
+                    try:
+                        start = sum(sum(page_sentence_amount) for page_sentence_amount in globals.file_sentence_amount[:index])
+                        end = start + sum(globals.file_sentence_amount[index])
+                        boost[start:end] *= 0.9
+                    except IndexError as e:
+                        print(f"List is out of range {e}")
+            return boost
+        else: 
+            return boost
     
+    def image_search(self, query):
+        original_query = query.split('\n')[0]
+
+        image_embeddings = self.ef.create_image_embeddings_from_bytes(globals.images)
+        embeddings_normalized = image_embeddings / np.linalg.norm(image_embeddings, axis=1, keepdims=True)
+        image_index = self.create_index(embeddings_normalized,index_type = "IP")
+
+        query_embedding = self.ef.create_embedding_from_query_image(query=original_query)
+        normalized_query_embedding = query_embedding / np.linalg.norm(query_embedding, axis=1, keepdims=True)
+
+        D,I = image_index.search(normalized_query_embedding,len(globals.images))
+        image_indexes = [image_indexes for index, image_indexes in enumerate(I[0]) if D[0][index] >= 0.60]
+
+        resources = self.extract_resources(convergence_vector=image_indexes,amount=globals.file_image_amount)
+
+        return resources
+
     def table_context_creator(self, index_list):
         table_clusters = []
         current_cluster = []
@@ -511,17 +552,17 @@ class FileProcessor:
             text += globals.sentences[i]
         return text
 
-    def extract_resources(self, convergence_vector: np.ndarray):
+    def extract_resources(self, convergence_vector: np.ndarray, amount):
         resources = []
         for index in convergence_vector:
             cumulative_file_sentence_sum = 0
-            for i, sentence_amount in enumerate(globals.file_sentence_amount):
+            for i, sentence_amount in enumerate(amount):
                 cumulative_file_sentence_sum += sum(sentence_amount)
                 if cumulative_file_sentence_sum > index:
                     cumulative_page_sentence_sum = 0
                     for j, page_sentence_amount in enumerate(sentence_amount):
                         cumulative_page_sentence_sum += page_sentence_amount
-                        if sum(sum(page_sentence_amount) for page_sentence_amount in globals.file_sentence_amount[:i]) + cumulative_page_sentence_sum  > index:
+                        if sum(sum(page_sentence_amount) for page_sentence_amount in amount[:i]) + cumulative_page_sentence_sum  > index:
                             resource = {"file_name": globals.files[i], "page": j + 1}
                             if resource not in resources:
                                 resources.append(resource)
