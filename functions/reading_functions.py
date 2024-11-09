@@ -7,6 +7,9 @@ import os
 import fitz
 import re
 import openpyxl
+from functions.chatbot_functions import ChatbotFunctions
+import io 
+from PIL import Image
 
 class ReadingFunctions:
     def __init__(self):
@@ -14,6 +17,7 @@ class ReadingFunctions:
             "en_core_web_sm",
             disable=[ "tagger", "attribute_ruler", "lemmatizer", "ner","textcat","custom "]
         )
+        self.cf = ChatbotFunctions()
 
     def read_file(self, file_path: str):
         file_data = {
@@ -25,6 +29,7 @@ class ReadingFunctions:
             "block_num": [],
             "file_header" : [],
             "is_table" : [],
+            "is_image" : [],
             "image_bytes" : [],
             "page_image_amount" : []
         }
@@ -44,17 +49,13 @@ class ReadingFunctions:
                         for page_num in range(len(file)):
                             page = file.load_page(page_num)
                             tables = page.find_tables()
-                            image_list = page.get_images()
-                            if image_list:
-                                self._extract_pdf_image(file,image_list,file_data)
-                            else:
-                                file_data["page_image_amount"].append(0)
                             if tables.tables:
                                 self._extract_pdf_tables(page,file_data,tables)
                             else:
                                 block_text = page.get_text("blocks")
                                 blocks = page.get_text("dict")["blocks"]
                                 text_blocks = [block for block in blocks if block["type"] == 0]
+                                image_blocks = [block for block in blocks if block["type"] == 1]
                                 for i,block in enumerate(text_blocks):
                                     if "lines" in block and len(block["lines"]) >= 1 and len(block["lines"]) < 5: 
                                         for line in block["lines"]:
@@ -66,12 +67,14 @@ class ReadingFunctions:
                                                     file_data["page_num"].append(page_num+1)
                                                     file_data["block_num"].append(i)
                                                     file_data["is_table"].append(0)
+                                                    file_data["is_image"].append(0)
                                                 elif len(text) > 15 and re.search(r'^[^\w\s]+$|^[_]+$',text) == None:
                                                     file_data["sentences"].append(text)
                                                     file_data["is_header"].append(0)
                                                     file_data["page_num"].append(page_num+1)
                                                     file_data["block_num"].append(i)
                                                     file_data["is_table"].append(0)
+                                                    file_data["is_image"].append(0)
                                     elif "lines" in block:
                                         for sent_num in range(len(block_text[i][4].split('. '))):
                                                 sentence = re.split(r'(?<=[.!?])\s+', block_text[i][4])[sent_num].strip()
@@ -82,6 +85,11 @@ class ReadingFunctions:
                                                     file_data["page_num"].append(page_num + 1)
                                                     file_data["block_num"].append(i)
                                                     file_data["is_table"].append(0)
+                                                    file_data["is_image"].append(0)
+                            if image_blocks:
+                                self._extract_pdf_image(image_blocks,file_data)
+                            else:
+                                file_data["page_image_amount"].append(0)
                             current_sentence_count = len(file_data["sentences"])
                             sentences_in_this_page = current_sentence_count - previous_sentence_count
                             file_data["page_sentence_amount"].append(sentences_in_this_page)
@@ -104,10 +112,12 @@ class ReadingFunctions:
                                 file_data["sentences"].append(para.text)
                                 file_data["is_header"].append(1)
                                 file_data["is_table"].append(0)
+                                file_data["is_image"].append(0)
                             elif len(para.text) > 15:
                                 file_data["sentences"].append(para.text)
                                 file_data["is_header"].append(0)
                                 file_data["is_table"].append(0)
+                                file_data["is_image"].append(0)
                         current_sentence_count = len(file_data["sentences"])
                         sentences_in_this_page = current_sentence_count - previous_sentence_count
                         file_data["page_sentence_amount"].append(sentences_in_this_page)
@@ -139,6 +149,7 @@ class ReadingFunctions:
                             file_data['is_header'].append(0)
                             file_data['is_table'].append(0)
                             file_data['page_num'].append(count)
+                            file_data["is_image"].append(0)
                             current_sentence_count = len(file_data["sentences"])
                             sentences_in_this_page = current_sentence_count - previous_sentence_count
                             file_data["page_sentence_amount"].append(sentences_in_this_page)
@@ -237,6 +248,7 @@ class ReadingFunctions:
                 file_data["page_num"].append(int(page.number)+1)
                 file_data["block_num"].append(i)
                 file_data["is_table"].append(1)
+                file_data["is_image"].append(0)
                 counter += 1
             elif check == 1 and counter > 0 and i == len(blocks)-1:
                 file_data["is_table"][-2] = 1
@@ -255,12 +267,14 @@ class ReadingFunctions:
                                 file_data["page_num"].append(int(page.number)+1)
                                 file_data["block_num"].append(i)
                                 file_data["is_table"].append(0)
+                                file_data["is_image"].append(0)
                             elif len(text) >= 5 and re.search(r'^[^\w\s]+$|^[_]+$',text) == None and re.search(r'\d+(?:\.\d+)+\.',text) == None:
                                 file_data["sentences"].append(text)
                                 file_data["is_header"].append(0)
                                 file_data["page_num"].append(int(page.number)+1)
                                 file_data["block_num"].append(i)
                                 file_data["is_table"].append(0)
+                                file_data["is_image"].append(0)
                 elif "lines" in text_blocks[i]:
                     for sent_num in range(len(block[4].split('. '))):
                         sentence = re.split(r'(?<=[.!?])\s+', block[4])[sent_num].strip()
@@ -271,6 +285,7 @@ class ReadingFunctions:
                             file_data["page_num"].append(int(page.number)+1)
                             file_data["block_num"].append(i)
                             file_data["is_table"].append(0)
+                            file_data["is_image"].append(0)
             else:
                 if "lines" in text_blocks[i] and len(text_blocks[i]["lines"]) >= 1 and len(text_blocks[i]["lines"]) < 3 and len(text_blocks[i]["lines"][0]["spans"]) < 2:
                     for line in text_blocks[i]["lines"]:
@@ -282,12 +297,14 @@ class ReadingFunctions:
                                 file_data["page_num"].append(int(page.number)+1)
                                 file_data["block_num"].append(i)
                                 file_data["is_table"].append(0)
+                                file_data["is_image"].append(0)
                             elif len(text) >= 5 and re.search(r'^[^\w\s]+$|^[_]+$',text) == None and re.search(r'\d+(?:\.\d+)+\.',text) == None:
                                 file_data["sentences"].append(text)
                                 file_data["is_header"].append(0)
                                 file_data["page_num"].append(int(page.number)+1)
                                 file_data["block_num"].append(i)
                                 file_data["is_table"].append(0)
+                                file_data["is_image"].append(0)
                 elif "lines" in text_blocks[i]:
                     for sent_num in range(len(block[4].split('. '))):
                         sentence = re.split(r'(?<=[.!?])\s+', block[4])[sent_num].strip()
@@ -298,6 +315,7 @@ class ReadingFunctions:
                             file_data["page_num"].append(int(page.number)+1)
                             file_data["block_num"].append(i)
                             file_data["is_table"].append(0)
+                            file_data["is_image"].append(0)
 
     def _extract_table_text(self,tabs):
         table_list =  []
@@ -319,13 +337,17 @@ class ReadingFunctions:
         return -1, 0
 
     # PDF image extraction function
-    def _extract_pdf_image(self, doc, image_list, file_data):
+    def _extract_pdf_image(self, image_blocks, file_data):
         previous_image_count = sum(file_data["page_image_amount"])
-        for img in image_list:
-            xref = img[0]
-            base_image = doc.extract_image(xref)
-            image_bytes = base_image["image"]
-            file_data["image_bytes"].append(image_bytes)
+        for block in image_blocks:
+            image_bytes = block["image"]
+            image = Image.open(io.BytesIO(image_bytes))
+            image = image.resize((512,480), Image.LANCZOS)
+            description = self.cf.image_description_generation(image)
+            file_data["image_bytes"].append(description)
+            file_data["is_image"].append(1)
+            file_data["is_header"].append(0)
+            file_data["is_table"].append(0)
         current_image_count = len(file_data["image_bytes"])
         image_in_this_page = current_image_count - previous_image_count
         file_data["page_image_amount"].append(image_in_this_page)

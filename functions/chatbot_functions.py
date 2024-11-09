@@ -3,6 +3,8 @@ from dotenv import load_dotenv
 from langdetect import detect
 import textwrap
 import globals
+import base64
+import io
 
 
 class ChatbotFunctions:
@@ -124,6 +126,24 @@ class ChatbotFunctions:
         # Extract queries
         new_queries = response.choices[0].message.content.strip()
         return new_queries
+    
+    def image_description_generation(self, image):
+        buffer = io.BytesIO()
+        image.save(buffer, format="JPEG", quality=90)
+        base64_image = base64.b64encode(buffer.getvalue()).decode('utf-8')
+
+        response = self.client.chat.completions.create(
+            model="gpt-3.5-turbo-0125",
+            messages=[
+                {"role": "system", "content": "Describe the image in high detail"},
+                {"role": "user", "content": f'{base64_image}'}
+            ],
+            temperature=0,
+            max_tokens=50
+        )
+        # Extract description
+        description = response.choices[0].message.content.strip()
+        return description
 
     def detect_language(self, query):
         lang = "en"
