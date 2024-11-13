@@ -421,25 +421,27 @@ class FileProcessor:
     def search_file_header_index(self,query):
         boost = np.ones(len(globals.sentences))
         original_query = query.split('\n')[0]
+        if globals.file_headers:
+            file_header_embeddings = self.ef.create_vector_embeddings_from_sentences(globals.file_headers)
+            file_header_index = self.create_index(file_header_embeddings)
 
-        file_header_embeddings = self.ef.create_vector_embeddings_from_sentences(globals.file_headers)
-        file_header_index = self.create_index(file_header_embeddings)
+            D,I = file_header_index.search(self.ef.create_vector_embedding_from_query(query=original_query),len(globals.file_headers))
+            if sum(D[0])/len(D[0]) < 0.45:
+                file_indexes = [file_index for index, file_index in enumerate(I[0]) if D[0][index] < sum(D[0])/len(D[0])]
+            else:
+                file_indexes = [file_index for index, file_index in enumerate(I[0]) if D[0][index] < 0.45]
 
-        D,I = file_header_index.search(self.ef.create_vector_embedding_from_query(query=original_query),len(globals.file_headers))
-        if sum(D[0])/len(D[0]) < 0.45:
-            file_indexes = [file_index for index, file_index in enumerate(I[0]) if D[0][index] < sum(D[0])/len(D[0])]
+            if file_indexes:
+                for i, index in enumerate(file_indexes):
+                    try:
+                        start = sum(sum(page_sentence_amount) for page_sentence_amount in globals.file_sentence_amount[:index])
+                        end = start + sum(globals.file_sentence_amount[index])
+                        boost[start:end] *= 0.9
+                    except IndexError as e:
+                        print(f"List is out of range {e}")
+            return boost
         else:
-            file_indexes = [file_index for index, file_index in enumerate(I[0]) if D[0][index] < 0.45]
-
-        if file_indexes:
-            for i, index in enumerate(file_indexes):
-                try:
-                    start = sum(sum(page_sentence_amount) for page_sentence_amount in globals.file_sentence_amount[:index])
-                    end = start + sum(globals.file_sentence_amount[index])
-                    boost[start:end] *= 0.9
-                except IndexError as e:
-                    print(f"List is out of range {e}")
-        return boost
+            return boost
     
     def table_context_creator(self, index_list):
         table_clusters = []
