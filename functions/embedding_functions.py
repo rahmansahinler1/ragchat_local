@@ -19,7 +19,7 @@ class EmbeddingFunctions:
         
         for batch in batches:
             sentence_embedding = self.client.embeddings.create(
-                model="text-embedding-ada-002", input=batch
+                model="text-embedding-3-small", input=batch
             )
             file_embeddings.extend(sentence_embedding.data)
 
@@ -29,6 +29,6 @@ class EmbeddingFunctions:
 
     def create_vector_embedding_from_query(self, query):
         query_embedding = self.client.embeddings.create(
-            model="text-embedding-ada-002", input=query
+            model="text-embedding-3-small", input=query
         )
         return np.array(query_embedding.data[0].embedding, float).reshape(1, -1)
