@@ -23,83 +23,88 @@ class Test():
             "answer": [],
             "ground_truth": []
         })
-        index_object = self.index_dataset()
-        text_index = self.processor.create_index(embeddings=index_object["embeddings"])
-        sentences = index_object["sentences"]
-        is_header = index_object["is_header"]
-        is_table = index_object["is_table"]
-        file_headers = index_object["file_header"]
-        file_sentence_amount = index_object["file_sentence_amount"]
+        folder_path = Path("C:/Users/Nazm_/Documents/ragchat_local/db/test_docs")
+        for file_name in os.listdir(folder_path):
+            if file_name.endswith(".pickle"):
+                file_path = os.path.join(folder_path, file_name)
+            index_object = self.index_dataset(file_path)
+            text_index = self.processor.create_index(embeddings=index_object["embeddings"])
+            sentences = index_object["sentences"]
+            is_header = index_object["is_header"]
+            is_table = index_object["is_table"]
+            file_headers = index_object["file_header"]
+            file_sentence_amount = index_object["file_sentence_amount"]                                   
+            domain_name = file_name.split('.')[0]
 
-        for row in tqdm(self.test_dataset['train']):
-            all_widen_sentences = []
-            dict_resource = {}
-            new_queries = self.processor.generate_additional_queries(query=row["question"])
-            question = row["question"]
-            ground_truths = row["ground_truth"]
-            if new_queries[0][0] == "[":
-                processed_queries = self.processor.query_preprocessing(new_queries)
-                original_query = processed_queries[0]
-            else:
-                processed_queries = new_queries.split("\n")
-                processed_queries = processed_queries[:6]
-                original_query = processed_queries[0]
-
-            boost = self.search_index_header(query=original_query,dataset=is_header,sentences=sentences)
-            boost_file_header = self.search_file_header_index(query=original_query,dataset=file_headers,sentences=sentences,file_sentece_amount=file_sentence_amount)
-            boost_combined = 0.75 * boost + 0.25 * boost_file_header
-            for query in processed_queries:
-                if(query=="\n" or query=="\n\n" or query=="no response" or query==""):
-                    continue
+            for row in tqdm(self.test_dataset['train']):
+                all_widen_sentences = []
+                dict_resource = {}
+                new_queries = self.processor.generate_additional_queries(query=row["question"])
+                question = row["question"]
+                ground_truths = row["ground_truth"]
+                if new_queries[0][0] == "[":
+                    processed_queries = self.processor.query_preprocessing(new_queries)
+                    original_query = processed_queries[0]
                 else:
-                    query_vector = self.processor.ef.create_vector_embedding_from_query(query=query)
-                    D, I = text_index.search(query_vector, len(sentences))
-                    for j, indexes in enumerate(I[0]):
-                        if indexes in dict_resource:
-                            dict_resource[indexes].append(D[0][j])
-                        else:
-                            dict_resource[indexes] = [D[0][j]]
-            try:
-                avg_index_list = self.processor.avg_resources(dict_resource)
-                for key in avg_index_list:
-                    avg_index_list[key] *= boost_combined[key]
-                sorted_dict = dict(sorted(avg_index_list.items(), key=lambda item: item[1]))
-                indexes = np.array(list(sorted_dict.keys()))
-                sorted_sentences = indexes[:10]
-                sorted_sentence_indexes = [(order, int(index)) for order, index in enumerate(sorted_sentences) if is_table[int(index)] == 0]
-                sorted_table_indexes = [(order, int(index)) for order, index in enumerate(sorted_sentences) if is_table[int(index)] == 1]
-            except ValueError as e:
-                original_query = "Please provide meaningful query:"
-                print(f"{original_query, {e}}")
+                    processed_queries = new_queries.split("\n")
+                    processed_queries = processed_queries[:6]
+                    original_query = processed_queries[0]
 
-            for order,index in sorted_sentence_indexes:
-                if order == 0:
-                    widen_sentences = self.widen_sentences(dataset = sentences, window_size=3, index=index)
-                elif order in range(1,4):
-                    widen_sentences = self.widen_sentences(dataset = sentences, window_size=2, index=index)
-                else:
-                    widen_sentences = self.widen_sentences(dataset = sentences, window_size=1, index=index)
-                all_widen_sentences.append(widen_sentences)
+                boost = self.search_index_header(query=original_query,dataset=is_header,sentences=sentences)
+                boost_file_header = self.search_file_header_index(query=original_query,dataset=file_headers,sentences=sentences,file_sentece_amount=file_sentence_amount)
+                boost_combined = 0.75 * boost + 0.25 * boost_file_header
+                for query in processed_queries:
+                    if(query=="\n" or query=="\n\n" or query=="no response" or query==""):
+                        continue
+                    else:
+                        query_vector = self.processor.ef.create_vector_embedding_from_query(query=query)
+                        D, I = text_index.search(query_vector, len(sentences))
+                        for j, indexes in enumerate(I[0]):
+                            if indexes in dict_resource:
+                                dict_resource[indexes].append(D[0][j])
+                            else:
+                                dict_resource[indexes] = [D[0][j]]
+                try:
+                    avg_index_list = self.processor.avg_resources(dict_resource)
+                    for key in avg_index_list:
+                        avg_index_list[key] *= boost_combined[key]
+                    sorted_dict = dict(sorted(avg_index_list.items(), key=lambda item: item[1]))
+                    indexes = np.array(list(sorted_dict.keys()))
+                    sorted_sentences = indexes[:10]
+                    sorted_sentence_indexes = [(order, int(index)) for order, index in enumerate(sorted_sentences) if is_table[int(index)] == 0]
+                    sorted_table_indexes = [(order, int(index)) for order, index in enumerate(sorted_sentences) if is_table[int(index)] == 1]
+                except ValueError as e:
+                    original_query = "Please provide meaningful query:"
+                    print(f"{original_query, {e}}")
 
-            if sorted_table_indexes:
-                table_context = self.processor.table_context_creator(index_list=sorted_table_indexes,dataset=is_table,sentences=sentences)
-                for tuple in table_context:
-                    all_widen_sentences.insert(tuple[0],tuple[1])
+                for order,index in sorted_sentence_indexes:
+                    if order == 0:
+                        widen_sentences = self.widen_sentences(dataset = sentences, window_size=3, index=index)
+                    elif order in range(1,4):
+                        widen_sentences = self.widen_sentences(dataset = sentences, window_size=2, index=index)
+                    else:
+                        widen_sentences = self.widen_sentences(dataset = sentences, window_size=1, index=index)
+                    all_widen_sentences.append(widen_sentences)
 
-            context = self.create_dynamic_context(sentences=all_widen_sentences)
-            answer = self.processor.cf.response_generation(query=original_query, context=context)
+                if sorted_table_indexes:
+                    table_context = self.processor.table_context_creator(index_list=sorted_table_indexes,dataset=is_table,sentences=sentences)
+                    for tuple in table_context:
+                        all_widen_sentences.insert(tuple[0],tuple[1])
 
-            df = pd.concat([df, pd.DataFrame({
-                "question": question,
-                "answer": answer,
-                "contexts": [context.split('\n')],
-                "ground_truth": ground_truths
-            })], ignore_index=True)
+                context = self.create_dynamic_context(sentences=all_widen_sentences)
+                answer = self.processor.cf.response_generation(query=original_query, context=context)
+
+                df = pd.concat([df, pd.DataFrame({
+                    "question": question,
+                    "answer": answer,
+                    "contexts": [context.split('\n')],
+                    "ground_truth": ground_truths
+                })], ignore_index=True)
 
         return df
 
-    def index_dataset(self):
-        pickle_path = Path("C:/Users/Nazm_/Documents/ragchat_local/db/test_docs/test_pickle.pickle")
+    def index_dataset(self, path):
+        pickle_path = Path(path)
         if os.path.exists(pickle_path):
             try:
                 index_object = self.processor.indf.load_index(index_path=pickle_path)
@@ -221,5 +226,5 @@ class Test():
 test_function = Test()
 evaluation_df = test_function.search_index_with_test_questions()
 result_df = test_function.evaluation(evaluation_df)
-result_df.to_csv("C:/Users/Nazm_/Documents/ragchat_local/test_result.csv", index=False)
+result_df.to_csv("db/test_docs/test_result.csv", index=False)
 print(result_df)

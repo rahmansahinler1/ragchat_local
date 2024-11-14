@@ -1,5 +1,7 @@
 from app.application import App
 import traceback
+import os
+os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
 
 def main():
     try:
