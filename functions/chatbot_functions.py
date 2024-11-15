@@ -99,7 +99,7 @@ class ChatbotFunctions:
         
         # Generate response
         response = self.client.chat.completions.create(
-            model="gpt-3.5-turbo-0125",
+            model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": prompt},
                 {"role": "user", "content": query}
@@ -116,7 +116,7 @@ class ChatbotFunctions:
         
         # Generate queries
         response = self.client.chat.completions.create(
-            model="gpt-3.5-turbo-0125",
+            model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": prompt},
                 {"role": "user", "content": query}
@@ -133,7 +133,7 @@ class ChatbotFunctions:
         base64_image = base64.b64encode(buffer.getvalue()).decode('utf-8')
 
         response = self.client.chat.completions.create(
-            model="gpt-3.5-turbo-0125",
+            model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": "Describe the image in high detail"},
                 {"role": "user", "content": f'{base64_image}'}

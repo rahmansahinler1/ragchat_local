@@ -342,7 +342,7 @@ class ReadingFunctions:
         for block in image_blocks:
             image_bytes = block["image"]
             image = Image.open(io.BytesIO(image_bytes))
-            image = image.resize((512,480), Image.LANCZOS)
+            image = image.resize((630,470), Image.LANCZOS)
             description = self.cf.image_description_generation(image)
             file_data["image_bytes"].append(description)
             file_data["is_image"].append(1)
