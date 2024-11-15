@@ -12,9 +12,8 @@ import os
 
 class Test():
     def __init__(self):
-        test_dataset = load_dataset("aurelio-ai/ai-arxiv2-ragas-mixtral")
+        self.test_dataset = pd.read_csv("docs/domain1/test_dataframe.csv",header=0)
         self.processor = FileProcessor()
-        self.test_dataset = test_dataset
 
     def search_index_with_test_questions(self):
         df = pd.DataFrame({
@@ -35,8 +34,10 @@ class Test():
             file_headers = index_object["file_header"]
             file_sentence_amount = index_object["file_sentence_amount"]                                   
             domain_name = file_name.split('.')[0]
+            if domain_name != 'domain1':
+                dataset = self.test_dataset.loc[self.test_dataset['domain'] == domain_name]
 
-            for row in tqdm(self.test_dataset['train']):
+            for row_index,row in tqdm(dataset.iterrows()):
                 all_widen_sentences = []
                 dict_resource = {}
                 new_queries = self.processor.generate_additional_queries(query=row["question"])
