@@ -22,7 +22,7 @@ class Test():
             "answer": [],
             "ground_truth": []
         })
-        folder_path = Path("C:/Users/Nazm_/Documents/ragchat_local/db/test_docs")
+        folder_path = Path("db/test_docs")
         for file_name in os.listdir(folder_path):
             if file_name.endswith(".pickle"):
                 file_path = os.path.join(folder_path, file_name)
