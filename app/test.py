@@ -17,9 +17,12 @@ class Test():
 
     def search_index_with_test_questions(self):
         df = pd.DataFrame({
-            "question": [],
-            "contexts": [],
-            "answer": [],
+            "Dom": [],
+            "Topic": [],
+            "File Name": [],
+            "Question": [],
+            "Contexts": [],
+            "Answer": [],
             "ground_truth": []
         })
         folder_path = Path("db/test_docs")
@@ -36,12 +39,18 @@ class Test():
             domain_name = file_name.split('.')[0]
             if domain_name != 'domain1':
                 dataset = self.test_dataset.loc[self.test_dataset['domain'] == domain_name]
+            else:
+                dataset = self.test_dataset
 
-            for row_index,row in tqdm(dataset.iterrows()):
+            for index in tqdm(range(len(dataset))):
+                row = dataset.iloc[index]
                 all_widen_sentences = []
                 dict_resource = {}
-                new_queries = self.processor.generate_additional_queries(query=row["question"])
-                question = row["question"]
+                new_queries = self.processor.generate_additional_queries(query=row["Question"])
+                question = row["Question"]
+                domain = row["Dom"]
+                topic = row["Topic"]
+                filename = row["File Name"]
                 ground_truths = row["ground_truth"]
                 if new_queries[0][0] == "[":
                     processed_queries = self.processor.query_preprocessing(new_queries)
@@ -88,7 +97,7 @@ class Test():
                     all_widen_sentences.append(widen_sentences)
 
                 if sorted_table_indexes:
-                    table_context = self.processor.table_context_creator(index_list=sorted_table_indexes,dataset=is_table,sentences=sentences)
+                    table_context = self.table_context_creator(index_list=sorted_table_indexes,dataset=is_table,sentences=sentences)
                     for tuple in table_context:
                         all_widen_sentences.insert(tuple[0],tuple[1])
 
@@ -96,9 +105,12 @@ class Test():
                 answer = self.processor.cf.response_generation(query=original_query, context=context)
 
                 df = pd.concat([df, pd.DataFrame({
-                    "question": question,
-                    "answer": answer,
-                    "contexts": [context.split('\n')],
+                    "Dom": domain,
+                    "Topic": topic,
+                    "File Name": filename,
+                    "Question": question,
+                    "Answer": answer,
+                    "Contexts": [context.split('\n')],
                     "ground_truth": ground_truths
                 })], ignore_index=True)
 
@@ -226,6 +238,6 @@ class Test():
 
 test_function = Test()
 evaluation_df = test_function.search_index_with_test_questions()
+evaluation_df.to_csv("db/test_docs/raw_result.csv", index=False)
 result_df = test_function.evaluation(evaluation_df)
-result_df.to_csv("db/test_docs/test_result.csv", index=False)
-print(result_df)
+result_df.to_csv("db/test_docs/evaluation_result.csv", index=False)
