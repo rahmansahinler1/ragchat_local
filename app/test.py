@@ -212,10 +212,10 @@ class Test():
                 self.file_header_index = file_header_index
 
                 D,I = file_header_index.search(self.processor.ef.create_vector_embedding_from_query(query=query),len(dataset))
-                if sum(D[0])/len(D[0]) > 0.60:
+                if sum(D[0])/len(D[0]) > 0.40:
                     file_indexes = [file_index for index, file_index in enumerate(I[0]) if D[0][index] > sum(D[0])/len(D[0])]
                 else:
-                    file_indexes = [file_index for index, file_index in enumerate(I[0]) if D[0][index] > 0.60]
+                    file_indexes = [file_index for index, file_index in enumerate(I[0]) if D[0][index] > 0.40]
 
                 if file_indexes:
                     for index in file_indexes:
