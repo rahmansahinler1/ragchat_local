@@ -231,7 +231,6 @@ class FileProcessor:
             date = None
         ):
         shape = index_object["embeddings"].shape
-        table_shape = index_object["embeddings"].shape
         filtered_index = {
                 "file_path": [],
                 "file_sentence_amount": [],
@@ -264,8 +263,6 @@ class FileProcessor:
                 try:
                     sentence_start = sum(sum(page_sentences) for page_sentences in index_object["file_sentence_amount"][:index])
                     sentence_end =  sentence_start + sum(index_object["file_sentence_amount"][index])
-                    table_start = sum(sum(table_amount) for table_amount in index_object["file_table_amount"][:index])
-                    table_end =  table_start + sum(index_object["file_table_amount"][index])
 
                     filtered_index["sentences"].extend(index_object["sentences"][sentence_start:sentence_end])
                     filtered_index["is_header"].extend(index_object["is_header"][sentence_start:sentence_end])
@@ -317,7 +314,7 @@ class FileProcessor:
             avg_index_list = self.avg_resources(dict_resource)
             for key in avg_index_list:
                 avg_index_list[key] *= boost_combined[key]
-            sorted_dict = dict(sorted(avg_index_list.items(), key=lambda item: item[1]))
+            sorted_dict = dict(sorted(avg_index_list.items(), key=lambda item: item[1],reverse=True))
             indexes = np.array(list(sorted_dict.keys()))
             sorted_sentences = indexes[:10]
             sorted_sentence_indexes = [(order, int(index)) for order, index in enumerate(sorted_sentences) if globals.is_table[int(index)] == 0]
@@ -400,17 +397,17 @@ class FileProcessor:
             index_header = self.create_index(embeddings=header_embeddings)
 
             D,I = index_header.search(self.ef.create_vector_embedding_from_query(original_query),10)
-            filtered_header_indexes = [header_index for index, header_index in enumerate(I[0]) if D[0][index] < 0.40]
+            filtered_header_indexes = [header_index for index, header_index in enumerate(I[0]) if D[0][index] > 0.30]
             for i,filtered_index in enumerate(filtered_header_indexes):
                 try:
                     start = header_indexes[filtered_index] + 1
                     end = header_indexes[filtered_index + 1]
                     if i == 0:
-                        boost[start:end] *= 0.7
+                        boost[start:end] *= 1.3
                     elif i in range(1,3):
-                        boost[start:end] *= 0.8
+                        boost[start:end] *= 1.2
                     else:
-                        boost[start:end] *= 0.9
+                        boost[start:end] *= 1.1
                 except IndexError as e:
                     print(f"List is out of range {e}")
             return boost
@@ -426,17 +423,17 @@ class FileProcessor:
             file_header_index = self.create_index(file_header_embeddings)
 
             D,I = file_header_index.search(self.ef.create_vector_embedding_from_query(query=original_query),len(globals.file_headers))
-            if sum(D[0])/len(D[0]) < 0.45:
-                file_indexes = [file_index for index, file_index in enumerate(I[0]) if D[0][index] < sum(D[0])/len(D[0])]
+            if sum(D[0])/len(D[0]) > 0.40:
+                file_indexes = [file_index for index, file_index in enumerate(I[0]) if D[0][index] > sum(D[0])/len(D[0])]
             else:
-                file_indexes = [file_index for index, file_index in enumerate(I[0]) if D[0][index] < 0.45]
+                file_indexes = [file_index for index, file_index in enumerate(I[0]) if D[0][index] > 0.40]
 
             if file_indexes:
                 for i, index in enumerate(file_indexes):
                     try:
                         start = sum(sum(page_sentence_amount) for page_sentence_amount in globals.file_sentence_amount[:index])
                         end = start + sum(globals.file_sentence_amount[index])
-                        boost[start:end] *= 0.9
+                        boost[start:end] *= 1.1
                     except IndexError as e:
                         print(f"List is out of range {e}")
             return boost
@@ -491,7 +488,7 @@ class FileProcessor:
     def avg_resources(self, resources_dict):
         for key, value in resources_dict.items():
             value_mean = sum(value) / len(value)
-            value_coefficient = value_mean - len(value) * 0.0025
+            value_coefficient = value_mean + len(value) * 0.0025
             resources_dict[key] = value_coefficient
         return resources_dict
 

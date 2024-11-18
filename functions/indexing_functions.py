@@ -13,7 +13,7 @@ class IndexingFunctions:
                     embeddings:np.ndarray,
         ):
         dimension = len(embeddings[0])
-        index = faiss.IndexFlatL2(dimension)
+        index = faiss.IndexFlatIP(dimension)
         index.add(embeddings)
         return index
 

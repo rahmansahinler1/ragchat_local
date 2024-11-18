@@ -23,12 +23,16 @@ class EmbeddingFunctions:
             )
             file_embeddings.extend(sentence_embedding.data)
 
-        return np.array(
-            [x.embedding for x in file_embeddings], float
-        )
+        embeddings = np.array([x.embedding for x in file_embeddings], float)
+        normalized_embeddings = embeddings / np.linalg.norm(embeddings, axis=1)[:, np.newaxis]
+
+        return normalized_embeddings
 
     def create_vector_embedding_from_query(self, query):
         query_embedding = self.client.embeddings.create(
             model="text-embedding-3-small", input=query
         )
-        return np.array(query_embedding.data[0].embedding, float).reshape(1, -1)
+        embedding = np.array(query_embedding.data[0].embedding, float).reshape(1, -1)
+        normalized_embedding = embedding / np.linalg.norm(embedding, axis=1)[:, np.newaxis]
+
+        return normalized_embedding
