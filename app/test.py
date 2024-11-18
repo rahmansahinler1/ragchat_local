@@ -42,7 +42,7 @@ class Test():
             file_sentence_amount = index_object["file_sentence_amount"]                                   
             domain_name = file_name.split('.')[0]
             if domain_name != 'domain1':
-                dataset = self.test_dataset.loc[self.test_dataset['domain'] == domain_name]
+                dataset = self.test_dataset.loc[self.test_dataset['Dom'] == domain_name]
             else:
                 dataset = self.test_dataset
 
