@@ -271,10 +271,31 @@ class Test():
                         text_pairs.append((order, text))
                         break
         return text_pairs
-
+    
+    def clean_contexts(self,context_str):
+        flat_contexts = []
+        for ctx in context_str:
+            if isinstance(ctx, list):
+                flat_contexts.extend(ctx)
+            else:
+                flat_contexts.append(ctx)
+        cleaned_contexts = [str(ctx).strip() for ctx in flat_contexts if ctx and not str(ctx).isspace() and len(ctx)> 5 ]
+        return  cleaned_contexts
 
 test_function = Test()
 evaluation_df = test_function.search_index_with_test_questions()
 evaluation_df.to_csv("db/test_docs/raw_result.csv", index=False)
-result_df = test_function.evaluation(evaluation_df)
-result_df.to_csv("db/test_docs/evaluation_result.csv", index=False)
+column_mapping = {
+        'Question': 'user_input',  
+        'Answer': 'response',      
+        'Contexts': 'contexts',    
+        'ground_truth': 'ground_truth'  
+    }
+raw_df = pd.read_csv("db/test_docs/raw_result.csv",header=0)
+raw_grountruth = raw_df[pd.notna(raw_df['ground_truth'])]
+eval_df = raw_grountruth.copy()
+eval_df = eval_df.rename(columns=column_mapping)
+eval_df['contexts'] = eval_df['contexts'].str.split("', '")
+eval_df['contexts'] = eval_df['contexts'].apply(test_function.clean_contexts)
+result_df = test_function.evaluation(eval_df)
+result_df.to_csv("db/test_docs/test_eval.csv", index=False)
