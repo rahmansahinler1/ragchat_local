@@ -6,6 +6,8 @@ from datetime import datetime
 import os 
 import fitz
 import re
+import pymupdf4llm
+from langchain_text_splitters import MarkdownHeaderTextSplitter
 
 class ReadingFunctions:
     def __init__(self):
@@ -13,7 +15,13 @@ class ReadingFunctions:
             "en_core_web_sm",
             disable=[ "tagger", "attribute_ruler", "lemmatizer", "ner","textcat","custom "]
         )
-
+        self.headers_to_split_on = [
+            ("#", "Header 1"),
+            ("##", "Header 2"),
+            ("###", "Header 3"),
+            ("####", "Header 4")
+        ]
+        self.markdown_splitter = MarkdownHeaderTextSplitter(self.headers_to_split_on,strip_headers=False,return_each_line=True)
     def read_file(self, file_path: str):
         file_data = {
             "page_sentence_amount": [],
@@ -21,7 +29,6 @@ class ReadingFunctions:
             "date": [],
             "is_header": [],
             "page_num": [],
-            "block_num": [],
             "file_header" : [],
             "is_table" : [],
         }
@@ -30,6 +37,7 @@ class ReadingFunctions:
         file_extension = path.suffix.lower()
         try:
             if file_extension == '.pdf':
+                markdown_pages = pymupdf4llm.to_markdown(path, page_chunks=True)
                 with fitz.open(path) as file:
                     try:
                         pdf_date = f"{file.metadata["creationDate"][4:6]}-{file.metadata["creationDate"][6:8]}-{file.metadata["creationDate"][9:11]}"
@@ -38,48 +46,32 @@ class ReadingFunctions:
                     except TypeError as e:
                         raise TypeError(f"PDF creation date could not extracted!: {e}")
                     try: 
-                        for page_num in range(len(file)):
-                            page = file.load_page(page_num)
-                            tables = page.find_tables()
-                            if tables.tables:
-                                self._extract_pdf_tables(page,file_data,tables)
-                            else:
-                                block_text = page.get_text("blocks")
-                                blocks = page.get_text("dict")["blocks"]
-                                text_blocks = [block for block in blocks if block["type"] == 0]
-                                for i,block in enumerate(text_blocks):
-                                    if "lines" in block and len(block["lines"]) >= 1 and len(block["lines"]) < 5: 
-                                        for line in block["lines"]:
-                                            for span in line["spans"]:
-                                                text = span["text"]
-                                                if span["size"] > 3 and (span["font"].find("Medi") >0 or span["font"].find("Bold") >0 or span["font"].find("B") >0) and len(text) > 3 and text[0].isalpha() and self._header_regex_check(text) == None:
-                                                    file_data["sentences"].append(text)
-                                                    file_data["is_header"].append(1)
-                                                    file_data["page_num"].append(page_num+1)
-                                                    file_data["block_num"].append(i)
-                                                    file_data["is_table"].append(0)
-                                                elif len(text) > 15 and re.search(r'^[^\w\s]+$|^[_]+$',text) == None:
-                                                    file_data["sentences"].append(text)
-                                                    file_data["is_header"].append(0)
-                                                    file_data["page_num"].append(page_num+1)
-                                                    file_data["block_num"].append(i)
-                                                    file_data["is_table"].append(0)
-                                    elif "lines" in block:
-                                        for sent_num in range(len(block_text[i][4].split('. '))):
-                                                sentence = re.split(r'(?<=[.!?])\s+', block_text[i][4])[sent_num].strip()
-                                                clean_sentence = self._process_regex(sentence)
-                                                if len(clean_sentence) > 15:
-                                                    file_data["sentences"].append(clean_sentence)
-                                                    file_data["is_header"].append(0)
-                                                    file_data["page_num"].append(page_num + 1)
-                                                    file_data["block_num"].append(i)
-                                                    file_data["is_table"].append(0)
+                        for i,page in enumerate(markdown_pages):
+                            splits = self.markdown_splitter.split_text(page['text'])
+                            for split in splits:
+                                if not len(split.page_content) > 5 or re.match(r'^[^\w]*$',split.page_content) or re.match(r'E\/ECE\/(?:\d+|TRANS)\/Rev\.\d+\/Add\.\d+\/Rev\.\d+',split.page_content):
+                                    continue
+                                elif split.metadata and split.page_content[0] == '#' : #header
+                                    file_data['sentences'].append(split.page_content)
+                                    file_data['is_header'].append(1)
+                                    file_data['is_table'].append(0)
+                                    file_data['page_num'].append(i+1)
+                                elif split.page_content[0] == '|' and split.page_content[-1] == '|': #table
+                                    file_data['sentences'].append(split.page_content)
+                                    file_data['is_header'].append(0)
+                                    file_data['is_table'].append(1)
+                                    file_data['page_num'].append(i+1)
+                                else:
+                                    file_data['sentences'].append(split.page_content)
+                                    file_data['is_header'].append(0)
+                                    file_data['is_table'].append(0)
+                                    file_data['page_num'].append(i+1)
                             current_sentence_count = len(file_data["sentences"])
                             sentences_in_this_page = current_sentence_count - previous_sentence_count
                             file_data["page_sentence_amount"].append(sentences_in_this_page)
                             previous_sentence_count = current_sentence_count
                     except TypeError as e:
-                        raise TypeError(f"PDF text could not extracted!: {e}")
+                        raise TypeError(f"PDF info could not extracted!: {e}")
             elif file_extension == '.docx':
                 doc = Document(path)
                 try:

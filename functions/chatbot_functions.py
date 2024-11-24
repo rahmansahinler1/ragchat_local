@@ -32,6 +32,29 @@ class ChatbotFunctions:
                
             User query: {query}
             """)
+        else:
+            return textwrap.dedent(f"""
+            Görev: Önce anlamı sonra yazım hatalarını kontrol edin ve anlamsal olarak benzer 5 soru oluşturun.
+
+            Talimatlar: Size bir kullanıcı sorusu verilir.
+            Öncelikle kullanıcı sorusunu kontrol edin, eğer kullanıcı sorusunun anlamı yoksa boş string '' döndürün, soru anlamlıysa şunları yapın:
+            Herhangi bir yazım veya dilbilgisi hatası olup olmadığını kontrol edin ve düzeltilmiş soruyu çıktıdaki ilk soru olarak döndürün.
+            Ardından, düzeltilmiş soruya anlamsal olarak benzer 5 ek soru oluşturun.
+            Oluşturulan soruların kelime kullanımının farklı olmasını ancak orijinal sorunun aynı anlamını veya amacını korumasını sağlayın.
+            Çıktıyı **kesinlikle** başka bir metin veya açıklama eklemeden aşağıdaki şablon formatında döndürün:
+
+            [düzeltilmiş soru]
+            [birinci anlamsal benzer soru]
+            [ikinci anlamsal benzer soru]
+            [üçüncü anlamsal benzer soru]
+            [dördüncü anlamsal benzer soru]
+            [beşinci anlamsal benzer soru]
+
+            Çıktınız tam olarak bu formatı takip etmelidir. Bu şablonun ötesinde hiçbir ek bilgi veya metin eklenmemelidir.
+            
+            Kullanıcı sorusu: {query}
+            """)
+
 
     def _prompt_with_context_builder(self, query, context, lang):
         if lang == "tr":
