@@ -121,7 +121,6 @@ class FileProcessor:
                 index_object["date"].extend(date for date in value["date"])
                 index_object["file_header"].extend(date for date in value["file_header"])
                 index_object["page_num"].extend(page for page in value["page_num"])
-                index_object["block_num"].extend(block for block in value["block_num"])
                 index_object["is_header"].extend(header for header in value["is_header"])
                 index_object["is_table"].extend(header for header in value["is_table"])
                 index_object["embeddings"] = np.vstack((index_object["embeddings"], value["embeddings"]))
@@ -164,7 +163,6 @@ class FileProcessor:
                     index_object["is_header"][change_index_start:change_index_finish] = value["is_header"][cumulative_index: sum(value["file_sentence_amount"][i])]
                     index_object["is_table"][change_index_start:change_index_finish] = value["is_table"][cumulative_index: sum(value["file_sentence_amount"][i])]
                     index_object["page_num"][change_index_start:change_index_finish] = value["page_num"][cumulative_index: sum(value["file_sentence_amount"][i])]
-                    index_object["block_num"][change_index_start:change_index_finish] = value["block_num"][cumulative_index: sum(value["file_sentence_amount"][i])]
                     index_object["embeddings"][change_index_start:change_index_finish] = value["embeddings"][cumulative_index: sum(value["file_sentence_amount"][i])]
                     # Index differences for next iteration
                     diff = len(value["sentences"][cumulative_index: sum(value["file_sentence_amount"][i])]) - len(index_object["sentences"][change_index_start:change_index_finish])
@@ -205,7 +203,6 @@ class FileProcessor:
                     del index_object["is_header"][change_index_start:change_index_finish]
                     del index_object["is_table"][change_index_start:change_index_finish]
                     del index_object["page_num"][change_index_start:change_index_finish]
-                    del index_object["block_num"][change_index_start:change_index_finish]
                     index_object["embeddings"] = np.delete(index_object["embeddings"], np.arange(change_index_start, change_index_finish), axis=0)
                     index_object["file_path"].pop(file_path_index)
                     index_object["date"].pop(file_path_index)
@@ -240,7 +237,6 @@ class FileProcessor:
                 "is_header": [],
                 "is_table": [],
                 "page_num": [],
-                "block_num": [],
                 "embeddings": np.empty(shape=shape),
         }
         file_path_indexes = []
@@ -268,8 +264,6 @@ class FileProcessor:
                     filtered_index["is_header"].extend(index_object["is_header"][sentence_start:sentence_end])
                     filtered_index["is_table"].extend(index_object["is_table"][sentence_start:sentence_end])
                     filtered_index["page_num"].extend(index_object["page_num"][sentence_start:sentence_end])
-                    filtered_index["block_num"].extend(index_object["block_num"][sentence_start:sentence_end])
-                    filtered_index["boost"].extend(index_object["boost"][sentence_start:sentence_end])
                     filtered_index["embeddings"] = np.vstack((index_object["embeddings"][sentence_start:sentence_end],filtered_index["embeddings"]))
 
                 except FileNotFoundError as e:
@@ -366,7 +360,6 @@ class FileProcessor:
                 self.change_dict[domain]["date"].extend(file_data["date"])
                 self.change_dict[domain]["file_header"].extend(file_data["file_header"])
                 self.change_dict[domain]["page_num"].extend(file_data["page_num"])
-                self.change_dict[domain]["block_num"].extend(file_data["block_num"])
                 self.change_dict[domain]["is_header"].extend(file_data["is_header"])
                 self.change_dict[domain]["is_table"].extend(file_data["is_table"])
                 self.change_dict[domain]["embeddings"] = np.vstack((self.change_dict[domain]["embeddings"], file_embeddings))
@@ -379,7 +372,6 @@ class FileProcessor:
                     "file_header" : file_data["file_header"],
                     "embeddings": file_embeddings,
                     "page_num" : file_data["page_num"],
-                    "block_num" : file_data["block_num"],
                     "is_header" : file_data["is_header"],
                     "is_table" : file_data["is_table"],
                 }
@@ -436,30 +428,10 @@ class FileProcessor:
         return boost
     
     def table_context_creator(self, index_list):
-        table_clusters = []
-        current_cluster = []
         text_pairs = []
-        seen_clusters = set()
-
-        for i, value in enumerate(globals.is_table):
-            if value == 1:
-                current_cluster.append(i)
-            elif current_cluster:
-                table_clusters.append(current_cluster)
-                current_cluster = []
-    
-        if current_cluster:
-            table_clusters.append(current_cluster)
-        
         for order, index in index_list:
-            for cluster in table_clusters:
-                if cluster[0] <= index <= cluster[-1]:
-                    cluster_tuple = tuple(cluster)
-                    if cluster_tuple not in seen_clusters:
-                        seen_clusters.add(cluster_tuple)
-                        text = ''.join(globals.sentences[index] + '\n' for index in cluster)
-                        text_pairs.append((order, text))
-                        break
+            text = globals.sentences[index]
+            text_pairs.append((order, text))
         return text_pairs
             
     def query_preprocessing(self, user_query):
