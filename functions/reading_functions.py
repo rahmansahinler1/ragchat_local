@@ -56,6 +56,11 @@ class ReadingFunctions:
                                     file_data['is_header'].append(1)
                                     file_data['is_table'].append(0)
                                     file_data['page_num'].append(i+1)
+                                elif split.page_content[0] == "*" and split.page_content[-1] == '*' and (re.match(r"(\*{2,})(\d+(?:\.\d+)*)\s*(\*{2,})?(.*)$",split.page_content) or re.match(r"(\*{1,3})?([A-Z][a-zA-Z\s\-]+)(\*{1,3})?$",split.page_content)): # Sub-Header and Header variant detection
+                                    file_data["sentences"].append(split.page_content)
+                                    file_data["is_header"].append(1)
+                                    file_data["is_table"].append(0)
+                                    file_data["page_num"].append(i+1)
                                 elif split.page_content[0] == '|' and split.page_content[-1] == '|': #table
                                     file_data['sentences'].append(split.page_content)
                                     file_data['is_header'].append(0)
